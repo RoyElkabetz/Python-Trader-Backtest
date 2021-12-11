@@ -10,5 +10,27 @@ class Broker:
         self.sell_fee = sell_fee
         self.time_delay = time_delay
         self.tax = tax
+        self.pending_buys = []
+        self.pending_sells = []
 
+    def buy_now(self, ticker, units):
+        pass
 
+    def sell_now(self, stocks):
+        pass
+
+    def add_buy(self, ticker, units, price, time_window, buy_now=False):
+
+        pass
+
+    def add_sell(self):
+        pass
+
+    def execute_buys(self):
+        pass
+
+    def execute_sells(self):
+        pass
+
+    def charge_trader(self):
+        pass

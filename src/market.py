@@ -74,3 +74,5 @@ class Market:
         # date format: tuple(yyyy, m, d)
         return date(*the_date).strftime("%Y-%m-%d") in self.stocks_data.index
 
+
+
