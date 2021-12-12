@@ -1,7 +1,7 @@
 import numpy as np
-from market import Market
-from broker import Broker
-from trader import Trader
+from markets import Market
+from brokers import Broker
+from traders import Trader
 
 # init players
 tickers = ['AAPL', 'Goog', 'SPY', 'TsLa', 'Orcl']

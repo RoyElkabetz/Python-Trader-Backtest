@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from market import Market
+from markets import Market
 
 
 class Broker:

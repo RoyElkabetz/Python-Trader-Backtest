@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 from datetime import date
-from market import Market
-from broker import Broker
+from markets import Market
+from brokers import Broker
 
 
 class Trader:
