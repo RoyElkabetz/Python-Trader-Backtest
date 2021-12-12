@@ -45,15 +45,22 @@ class Market:
             return self.stocks_data[ticker.upper()].loc[pd.DatetimeIndex([self.current_date])][stock_prm].values[0]
 
     def step(self):
-        previous_date = cp.copy(self.current_date)
+        # get current date
+        previous_date = self.stocks_data[self.tickers[0]].index[self.current_idx].date()
 
         # step a single time step forward
-        if self.current_idx < self.steps:
+        if self.current_idx <= self.steps:
+
+            # step index
             self.current_idx += 1
+
+            # step date
             self.current_date = self.stocks_data[self.tickers[0]].index[self.current_idx].date().strftime(self.date_format)
+            return False, previous_date
         else:
-            print('You are pointing to the last date in the market data.')
-        return previous_date
+            return True, previous_date
+
+
 
     def get_date_data(self, from_date, as_numpy=False):
         # date format: tuple(yyyy, m, d)

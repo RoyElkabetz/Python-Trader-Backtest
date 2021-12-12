@@ -10,20 +10,19 @@ broker1 = Broker(buy_fee=0.08, min_buy_fee=1, sell_fee=0.08, min_sell_fee=1, tax
 trader1 = Trader(liquid=100000, balance_period=60, my_broker=broker1, my_market=market1)
 
 # buy some stocks
-trader1.buy('AAPL', 4)
-trader1.buy('AAPL', 1)
-trader1.buy('Goog', 2)
-trader1.buy('Tsla', 1)
+trader1.buy('AAPL', 10)
+trader1.buy('AAPL', 10)
+trader1.buy('Goog', 4)
+trader1.buy('Tsla', 6)
+trader1.buy('ORCL', 6)
 
-p_date = market1.step()
-trader1.step(p_date)
-trader1.buy('Goog', 2)
-trader1.buy('Orcl', 1)
+done = False
 
-p_date = market1.step()
-trader1.step(p_date)
+while not done:
 
-print(trader1.portfolio_state)
+    done, previous_date = market1.step()
+    trader1.step(previous_date)
+
 
 
 

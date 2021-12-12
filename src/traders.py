@@ -43,7 +43,7 @@ class Trader:
             # add stocks to portfolio
             if ticker not in self.portfolio:
                 self.portfolio[ticker] = []
-                self.portfolio_state[ticker] = {'units': 0, 'buy value': 0.0, 'current value': 0.0, 'percent': 0.0}
+                self.portfolio_state[ticker] = {'units': 0, 'buy value': 0.0, 'current value': 0.0, 'sign': 0, 'percent': 0.0}
 
             for stock in stocks:
                 self.portfolio[ticker].append(stock)
@@ -108,6 +108,10 @@ class Trader:
         for ticker in self.portfolio:
             self.portfolio_state[ticker]['percent'] = self.portfolio_state[ticker]['current value'] / \
                                                       self.portfolio_current_value
+
+            # compute the sign which indicates if the stock is profitable at the moment
+            self.portfolio_state[ticker]['sign'] = np.sign(self.portfolio_state[ticker]['buy value'] -
+                                                           self.portfolio_state[ticker]['current value'])
         # compute portfolio profit
         self.portfolio_profit = self.portfolio_current_value - self.portfolio_buy_value
 
@@ -121,6 +125,23 @@ class Trader:
         self.portfolio_value_history.append(self.portfolio_current_value)
         self.date_history.append(last_date)
 
-    def balance(self):
-        pass
+    def balance(self, tickers, percentages):
+        if self.is_balanced(tickers, percentages):
+            return
+        else:
+            pass
+
+    def is_balanced(self, tickers, percentages):
+        assert np.sum(percentages) == 1 and len(tickers) == len(percentages)
+
+        # check if the portfolio is balanced
+        for i, ticker in enumerate(tickers):
+            if np.abs(self.portfolio_state['percent'] - percentages[i]) > 0.01:
+                return False
+        else:
+            # the portfolio is balanced
+            return True
+
+
+
 
