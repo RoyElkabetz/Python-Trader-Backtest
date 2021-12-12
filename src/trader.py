@@ -17,6 +17,11 @@ class Trader:
         self.portfolio_current_value = 0
         self.portfolio_profit = 0
 
+        self.liquid_history = []
+        self.profit_history = []
+        self.portfolio_value_history = []
+        self.date_history = []
+
     def buy(self, ticker, units):
         ticker = ticker.upper()
 
@@ -30,12 +35,16 @@ class Trader:
 
         else:
             # buy the stocks
-            stocks = self.my_broker.buy_now(ticker, units)
+            stocks, fee = self.my_broker.buy_now(ticker, units)
+
+            # pay fee
+            self.liquid -= fee
+
+            # add stocks to portfolio
             if ticker not in self.portfolio:
                 self.portfolio[ticker] = []
                 self.portfolio_state[ticker] = {'units': 0, 'buy value': 0.0, 'current value': 0.0, 'percent': 0.0}
 
-            # add stocks to portfolio
             for stock in stocks:
                 self.portfolio[ticker].append(stock)
                 self.portfolio_state[ticker]['units'] += 1
@@ -57,7 +66,7 @@ class Trader:
                 stock = self.portfolio[ticker].pop(0)
 
                 # get price when bought
-                buy_price = stock['Close'].values[0]
+                buy_price = stock['Open'].values[0]
 
                 # remove a single unit from portfolio
                 self.portfolio_state[ticker]['units'] -= 1
@@ -67,7 +76,7 @@ class Trader:
                 stocks_to_sell.append(stock)
 
             # send stocks to broker and get money back
-            money = self.my_broker.sell_now(stocks_to_sell)
+            money = self.my_broker.sell_now(ticker, stocks_to_sell)
 
             # add money to liquid
             self.liquid += money
@@ -101,6 +110,16 @@ class Trader:
                                                       self.portfolio_current_value
         # compute portfolio profit
         self.portfolio_profit = self.portfolio_current_value - self.portfolio_buy_value
+
+    def step(self, last_date):
+        # update portfolio state and values
+        self.update()
+
+        # save history
+        self.liquid_history.append(self.liquid)
+        self.profit_history.append(self.portfolio_profit)
+        self.portfolio_value_history.append(self.portfolio_current_value)
+        self.date_history.append(last_date)
 
     def balance(self):
         pass
