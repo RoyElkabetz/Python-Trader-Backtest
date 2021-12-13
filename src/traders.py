@@ -6,8 +6,9 @@ from brokers import Broker
 
 
 class Trader:
-    def __init__(self, liquid, balance_period, my_broker: Broker, my_market: Market):
+    def __init__(self, liquid, balance_liquid_lim, balance_period, my_broker: Broker, my_market: Market):
         self.liquid = liquid
+        self.balance_liquid_lim = balance_liquid_lim
         self.balance_period = balance_period
         self.my_broker = my_broker
         self.my_market = my_market
@@ -36,6 +37,9 @@ class Trader:
         else:
             # buy the stocks
             stocks, fee = self.my_broker.buy_now(ticker, units)
+
+            # pay price
+            self.liquid -= price * units
 
             # pay fee
             self.liquid -= fee
@@ -110,8 +114,8 @@ class Trader:
                                                       self.portfolio_current_value
 
             # compute the sign which indicates if the stock is profitable at the moment
-            self.portfolio_state[ticker]['sign'] = np.sign(self.portfolio_state[ticker]['buy value'] -
-                                                           self.portfolio_state[ticker]['current value'])
+            self.portfolio_state[ticker]['sign'] = np.sign(self.portfolio_state[ticker]['current value'] -
+                                                           self.portfolio_state[ticker]['buy value'])
         # compute portfolio profit
         self.portfolio_profit = self.portfolio_current_value - self.portfolio_buy_value
 
@@ -125,18 +129,79 @@ class Trader:
         self.portfolio_value_history.append(self.portfolio_current_value)
         self.date_history.append(last_date)
 
-    def balance(self, tickers, percentages):
+    def balance(self, tickers, percentages, tries=10):
+        tickers = np.array(tickers)
+        percentages = np.array(percentages)
+
         if self.is_balanced(tickers, percentages):
             return
         else:
-            pass
+            portfolio_std = []
+
+            stock_current_owned_value = np.zeros(len(tickers))
+            stock_owned_units = np.zeros(len(tickers))
+            stock_market_value = np.zeros(len(tickers))
+            stock_current_percentage = np.zeros(len(tickers))
+
+            counter = 0
+            std = np.inf
+            done = self.is_balanced(tickers, percentages)
+            while counter < tries and not done and std > 0.01:
+                counter += 1
+
+                # sort and unpack portfolio by current value
+                for i, ticker in enumerate(tickers):
+                    market_value = self.my_market.get_stock_data(ticker, 'Open')
+                    units = self.portfolio_state[ticker]['units']
+                    owned_value = self.portfolio_state[ticker]['current value']
+                    percent = self.portfolio_state[ticker]['percent']
+
+                    stock_market_value[i] = market_value
+                    stock_owned_units[i] = units
+                    stock_current_owned_value[i] = owned_value
+                    stock_current_percentage[i] = percent
+
+                # compute std
+                std = np.std(np.array(percentages) - np.array(stock_current_percentage))
+                portfolio_std.append(std)
+
+                # sort by owned value
+                sorted_idx = np.argsort(stock_current_owned_value)
+
+                # sort everything
+                stock_current_owned_value = stock_current_owned_value[sorted_idx]
+                stock_current_percentage = stock_current_percentage[sorted_idx]
+                stock_owned_units = stock_owned_units[sorted_idx]
+                stock_market_value = stock_market_value[sorted_idx]
+                percentages = percentages[sorted_idx]
+                tickers = tickers[sorted_idx]
+
+                # check if trader has enough liquid to balance by buying
+                if self.liquid > self.balance_liquid_lim:
+                    # compute the number of units the trader needs to buy
+                    units_to_buy = np.int((percentages[0] - stock_current_percentage[0]) *
+                                          self.portfolio_current_value / stock_market_value[0])
+                    # buy
+                    bought = self.buy(tickers[0], np.max([1, units_to_buy]))
+                else:
+                    # compute the number of units the trader needs to sell
+                    units_to_sell = np.int((stock_current_percentage[0] - percentages[0]) *
+                                           self.portfolio_current_value / stock_market_value[0])
+                    # sell
+                    sold = self.sell(tickers[-1], np.max([1, units_to_sell]))
+
+                # update portfolio
+                self.update()
+
+                # check if balanced
+                done = self.is_balanced(tickers, percentages)
 
     def is_balanced(self, tickers, percentages):
         assert np.sum(percentages) == 1 and len(tickers) == len(percentages)
 
         # check if the portfolio is balanced
         for i, ticker in enumerate(tickers):
-            if np.abs(self.portfolio_state['percent'] - percentages[i]) > 0.01:
+            if np.abs(self.portfolio_state[ticker]['percent'] - percentages[i]) > 0.03:
                 return False
         else:
             # the portfolio is balanced
