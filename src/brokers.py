@@ -18,16 +18,18 @@ class Broker:
     def buy_now(self, ticker, units):
         # check stock price
         price = self.my_market.get_stock_data(ticker, 'Open')
+        total_price = price * units
 
         # get stocks
         stock = self.my_market.get_stock_data(ticker, 'all')
         stocks = [stock] * units
 
         # compute the buying fee
-        fee = self.buy_fee * price * units
+        fee = self.buy_fee * total_price
         if fee < self.min_buy_fee:
             fee = self.min_buy_fee
-        return stocks, fee
+
+        return stocks, total_price, fee
 
     def sell_now(self, ticker, stocks):
         # check stock price
@@ -42,9 +44,8 @@ class Broker:
         # compute the sell fee with respect to current stock price and tax
         sell_fee = current_total_price * self.sell_fee
         tax = np.max([0, current_total_price - stocks_value])
-        money_back = current_total_price - sell_fee - tax
 
-        return money_back
+        return current_total_price, sell_fee, tax
 
     def add_buy(self):
         pass

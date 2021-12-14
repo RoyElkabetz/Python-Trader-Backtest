@@ -17,11 +17,15 @@ class Trader:
         self.portfolio_buy_value = 0
         self.portfolio_current_value = 0
         self.portfolio_profit = 0
+        self.fees_and_tax = 0
 
         self.liquid_history = []
         self.profit_history = []
         self.portfolio_value_history = []
         self.date_history = []
+        self.sell_fee_history = []
+        self.buy_fee_history = []
+        self.tax_history = []
 
     def buy(self, ticker, units):
         ticker = ticker.upper()
@@ -36,10 +40,11 @@ class Trader:
 
         else:
             # buy the stocks
-            stocks, fee = self.my_broker.buy_now(ticker, units)
+            stocks, total_price, fee = self.my_broker.buy_now(ticker, units)
+            self.buy_fee_history.append(fee)
 
             # pay price
-            self.liquid -= price * units
+            self.liquid -= total_price
 
             # pay fee
             self.liquid -= fee
@@ -80,10 +85,16 @@ class Trader:
                 stocks_to_sell.append(stock)
 
             # send stocks to broker and get money back
-            money = self.my_broker.sell_now(ticker, stocks_to_sell)
+            money, fee, tax = self.my_broker.sell_now(ticker, stocks_to_sell)
+            self.sell_fee_history.append(fee)
+            self.tax_history.append(tax)
 
             # add money to liquid
             self.liquid += money
+
+            # subtract fee and tax
+            self.liquid -= fee
+            self.liquid -= tax
 
             return True
         else:
@@ -94,6 +105,7 @@ class Trader:
         # update the portfolio state with market's current prices
         self.portfolio_buy_value = 0
         self.portfolio_current_value = 0
+        self.fees_and_tax = np.sum(self.buy_fee_history) + np.sum(self.sell_fee_history) + np.sum(self.tax_history)
 
         # update prices for all owned stocks
         for ticker in self.portfolio:
@@ -117,7 +129,7 @@ class Trader:
             self.portfolio_state[ticker]['sign'] = np.sign(self.portfolio_state[ticker]['current value'] -
                                                            self.portfolio_state[ticker]['buy value'])
         # compute portfolio profit
-        self.portfolio_profit = self.portfolio_current_value - self.portfolio_buy_value
+        self.portfolio_profit = self.portfolio_current_value - self.portfolio_buy_value - self.fees_and_tax
 
     def step(self, last_date):
         # update portfolio state and values
@@ -146,6 +158,8 @@ class Trader:
             counter = 0
             std = np.inf
             done = self.is_balanced(tickers, percentages)
+            previous_ticker_action = None
+
             while counter < tries and not done and std > 0.01:
                 counter += 1
 
@@ -178,17 +192,22 @@ class Trader:
 
                 # check if trader has enough liquid to balance by buying
                 if self.liquid > self.balance_liquid_lim:
+
                     # compute the number of units the trader needs to buy
-                    units_to_buy = np.int((percentages[0] - stock_current_percentage[0]) *
-                                          self.portfolio_current_value / stock_market_value[0])
+                    units_to_buy = np.int(np.ceil((percentages[0] - stock_current_percentage[0]) *
+                                          self.portfolio_current_value / stock_market_value[0]))
                     # buy
                     bought = self.buy(tickers[0], np.max([1, units_to_buy]))
+                    print('buy', tickers[0], units_to_buy)
+
                 else:
                     # compute the number of units the trader needs to sell
-                    units_to_sell = np.int((stock_current_percentage[0] - percentages[0]) *
-                                           self.portfolio_current_value / stock_market_value[0])
+                    units_to_sell = np.int(np.ceil((stock_current_percentage[-1] - percentages[-1]) *
+                                           self.portfolio_current_value / stock_market_value[-1]))
+
                     # sell
                     sold = self.sell(tickers[-1], np.max([1, units_to_sell]))
+                    print('sell', tickers[-1], units_to_sell)
 
                 # update portfolio
                 self.update()
