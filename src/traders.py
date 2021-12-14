@@ -141,7 +141,89 @@ class Trader:
         self.portfolio_value_history.append(self.portfolio_current_value)
         self.date_history.append(last_date)
 
-    def balance(self, tickers, percentages, tries=10):
+    def balance(self, tickers, percentages):
+        tickers = np.array(tickers)
+        percentages = np.array(percentages)
+
+        # check if the portfolio is balanced
+        if self.is_balanced(tickers, percentages):
+            return
+
+        # get ticker information
+        portfolio_std = []
+        owned_units = np.zeros(len(tickers), dtype=np.int)
+        market_value = np.zeros(len(tickers), dtype=np.float)
+        owned_value = np.zeros(len(tickers), dtype=np.float)
+        owned_percentage = np.zeros(len(tickers), dtype=np.float)
+        predicted_tax = np.zeros(len(tickers), dtype=np.float)
+        stocks_buy_value = {}
+
+        for i, ticker in enumerate(tickers):
+            owned_units[i] = self.portfolio_state[ticker]['units']
+            market_value[i] = self.my_market.get_stock_data(ticker, 'Open')
+            owned_value[i] = owned_units[i] * market_value[i]
+            owned_percentage[i] = self.portfolio_state[ticker]['percent']
+            stocks_buy_value[ticker] = []
+            for stock in self.portfolio[ticker]:
+                stocks_buy_value[ticker].append(stock['Open'].values[0])
+
+        # compute tax if balance to the mean up to the margin (worst case)
+        mean_balance = np.mean(owned_value)
+        units_to_mean = np.array((mean_balance - owned_value) / market_value, dtype=np.int)  # round to closest integer
+        for i, ticker in enumerate(tickers):
+            if units_to_mean[i] > 0:
+                predicted_tax[i] = (np.sum(stocks_buy_value[ticker][:units_to_mean[i]]) - units_to_mean[i] * market_value[i]) * self.my_broker.tax
+        predicted_tax = predicted_tax * (predicted_tax > 0)
+        predicted_fee = np.sum(units_to_mean * (units_to_mean > 0)) * self.my_broker.sell_fee + np.sum(-units_to_mean * (units_to_mean < 0)) * self.my_broker.buy_fee
+        usable_liquid = self.liquid + np.sum(owned_value) - np.sum(predicted_tax) - predicted_fee
+
+        # compute the balance to the maximum mean
+        value_per_ticker = usable_liquid / len(tickers)
+        units_of_balanced = np.array(value_per_ticker / market_value, dtype=np.int)
+        units_to_max = units_of_balanced - owned_units
+
+        # recompute the usable liquid
+        predicted_max_fee = np.sum(units_to_max * (units_to_max > 0)) * self.my_broker.buy_fee + np.sum(
+            -units_to_max * (units_to_max < 0)) * self.my_broker.sell_fee
+        usable_liquid -= predicted_max_fee
+
+        # recompute the balance to the maximum mean
+        value_per_ticker = usable_liquid / len(tickers)
+        units_of_balanced = np.array(value_per_ticker / market_value, dtype=np.int)
+        units_to_max = units_of_balanced - owned_units
+
+        # execute balance
+        for i, ticker in enumerate(tickers):
+            if units_to_max[i] > 0:
+                self.buy(ticker, units_to_max[i])
+            if units_to_max[i] < 0:
+                self.sell(ticker, -units_to_max[i])
+
+    def is_balanced(self, tickers, percentages):
+        assert np.sum(percentages) == 1 and len(tickers) == len(percentages)
+
+        owned_units = np.zeros(len(tickers), dtype=np.int)
+        market_value = np.zeros(len(tickers), dtype=np.float)
+        owned_value = np.zeros(len(tickers), dtype=np.float)
+
+        for i, ticker in enumerate(tickers):
+            owned_units[i] = self.portfolio_state[ticker]['units']
+            market_value[i] = self.my_market.get_stock_data(ticker, 'Open')
+            owned_value[i] = owned_units[i] * market_value[i]
+
+        margin = np.max(market_value) / 2
+        mean_value = np.mean(owned_value)
+        if np.max(np.abs(owned_value - mean_value)) > margin:
+            return False
+
+        else:
+            # the portfolio is balanced
+            return True
+
+    def mean_balance(self):
+        pass
+
+    def balance2(self, tickers, percentages, tries=10):
         tickers = np.array(tickers)
         percentages = np.array(percentages)
 
@@ -158,7 +240,6 @@ class Trader:
             counter = 0
             std = np.inf
             done = self.is_balanced(tickers, percentages)
-            previous_ticker_action = None
 
             while counter < tries and not done and std > 0.01:
                 counter += 1
@@ -214,18 +295,6 @@ class Trader:
 
                 # check if balanced
                 done = self.is_balanced(tickers, percentages)
-
-    def is_balanced(self, tickers, percentages):
-        assert np.sum(percentages) == 1 and len(tickers) == len(percentages)
-
-        # check if the portfolio is balanced
-        for i, ticker in enumerate(tickers):
-            if np.abs(self.portfolio_state[ticker]['percent'] - percentages[i]) > 0.03:
-                return False
-        else:
-            # the portfolio is balanced
-            return True
-
 
 
 
