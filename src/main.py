@@ -3,17 +3,24 @@ from markets import Market
 from brokers import Broker
 from traders import Trader
 from utils import plot_trader_data, compare_traders
+import copy as cp
 
 periods = [1, 2, 4, 8, 16, 32, 64, 128, 256]
 the_traders = []
 
+tickers = ['AAPL', 'GOOG', 'SPY', 'TSLA', 'ORCL']
+market = Market(tickers, start_date=(2019, 1, 1), end_date=(2022, 1, 1))
+broker = Broker(buy_fee=0.0008, min_buy_fee=2, sell_fee=0.0008, min_sell_fee=2, tax=0.25, my_market=market)
+first_date = cp.copy(market.current_date)
 
 for i, period in enumerate(periods):
-    print(period)
-    # init players
-    tickers = ['AAPL', 'GOOG', 'SPY', 'TSLA', 'ORCL']
-    market = Market(tickers, start_date=(2019, 1, 1), end_date=(2022, 1, 1))
-    broker = Broker(buy_fee=0.0008, min_buy_fee=2, sell_fee=0.0008, min_sell_fee=2, tax=0.25, my_market=market)
+    print(f'period: {period}')
+
+    # init market
+    market.current_idx = 0
+    market.current_date = first_date
+
+    # init new trader
     trader = Trader(liquid=50000, balance_liquid_lim=2000, balance_period=period, my_broker=broker, my_market=market)
 
     # buy some stocks
