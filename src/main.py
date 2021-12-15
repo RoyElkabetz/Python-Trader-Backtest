@@ -33,6 +33,8 @@ for i, period in enumerate(periods):
         done, previous_date = market1.step()
         trader1.step(previous_date)
         if steps % trader1.balance_period == 0:
+            if steps == 160:
+                a = 1
             trader1.balance(trader_tickers, percentages)
 
     profit_data.append(trader1.profit_history)
