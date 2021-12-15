@@ -57,3 +57,32 @@ def plot_trader_data(trader: Trader, interval=20):
     plt.ylabel('USD')
     plt.legend()
     plt.show()
+
+
+def compare_traders(traders: list, parameter: list, parameter_name: str, interval=20):
+
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=interval))
+    plt.title('profit history')
+
+    for i, trader in enumerate(traders):
+        plt.plot(trader.date_history, trader.profit_history, label=parameter_name + ': ' + str(parameter[i]))
+
+    plt.ylabel('USD')
+    plt.gcf().autofmt_xdate()
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=interval))
+    plt.title('portfolio volume history')
+
+    for i, trader in enumerate(traders):
+        plt.plot(trader.date_history, trader.portfolio_value_history, label=parameter_name + ': ' + str(parameter[i]))
+
+    plt.ylabel('USD')
+    plt.gcf().autofmt_xdate()
+    plt.legend()
+    plt.grid()
+    plt.show()

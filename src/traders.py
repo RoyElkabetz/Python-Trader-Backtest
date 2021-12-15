@@ -144,12 +144,11 @@ class Trader:
         self.portfolio_value_history.append(self.portfolio_current_value)
         self.date_history.append(last_date)
 
-    def balance(self, tickers, percentages):
+    def balance(self, tickers):
         tickers = np.array(tickers)
-        percentages = np.array(percentages)
 
         # check if the portfolio is balanced
-        if self.is_balanced(tickers, percentages):
+        if self.is_balanced(tickers):
             return
 
         # get ticker information
@@ -237,10 +236,9 @@ class Trader:
                 self.sell(ticker, units_to_max[i])
 
         self.update()
-        self.is_balanced(tickers, percentages)
+        self.is_balanced(tickers)
 
-    def is_balanced(self, tickers, percentages):
-        assert np.sum(percentages) == 1 and len(tickers) == len(percentages)
+    def is_balanced(self, tickers, percentages=None):
 
         owned_units = np.zeros(len(tickers), dtype=np.int)
         market_value = np.zeros(len(tickers), dtype=np.float)
@@ -251,6 +249,7 @@ class Trader:
             market_value[i] = self.my_market.get_stock_data(ticker, 'Open')
             owned_value[i] = owned_units[i] * market_value[i]
 
+        print('needs fixing...')
         margin = np.max(market_value / 2)
         std = np.std(owned_value)
         self.std_history.append(std)
