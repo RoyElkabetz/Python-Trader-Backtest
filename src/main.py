@@ -2,7 +2,7 @@ import numpy as np
 from markets import Market
 from brokers import Broker
 from traders import Trader
-from utils import plot_trader_data, compare_traders
+from utils import plot_trader, compare_traders
 import copy as cp
 
 periods = [1, 2, 4]

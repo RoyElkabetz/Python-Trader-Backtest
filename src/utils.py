@@ -2,10 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from traders import Trader
 import matplotlib.dates as mdates
-import datetime as dt
 
 
-def plot_trader_data(trader: Trader, interval=20):
+def plot_trader(trader: Trader, interval=20):
     tax_history = trader.tax_history
     buy_fee_history = trader.buy_fee_history
     sell_fee_history = trader.sell_fee_history
