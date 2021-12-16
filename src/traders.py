@@ -152,7 +152,7 @@ class Trader:
         p = np.array(p, dtype=np.float)
 
         # check if the portfolio is balanced
-        if self.is_balanced(tickers, p=p):
+        if self.is_balanced(tickers, p=p, verbose=verbose):
             return
 
         # get tickers information
@@ -242,9 +242,15 @@ class Trader:
 
         if verbose:
             print('\n')
-            print("| Liquid: {:14.2} |".format(np.round(self.liquid, 2)))
-            print(tickers)
-            print(values_for_execution[execution_order])
+            print('| Liquid: {:14.2f} |'.format(np.round(self.liquid, 2)))
+            verbose_str = []
+            for ticker in tickers:
+                verbose_str.append('| ')
+                verbose_str.append(ticker)
+                verbose_str.append(': {:14.2f} ')
+            verbose_str.append('|')
+
+            print(''.join(verbose_str).format(values_for_execution[execution_order]))
 
         # execute balance
         for i, ticker in enumerate(tickers):
@@ -254,9 +260,9 @@ class Trader:
                 self.sell(ticker, units_to_max[i])
 
         self.update()
-        self.is_balanced(tickers, p=p)
+        self.is_balanced(tickers, p=p, verbose=verbose)
 
-    def is_balanced(self, tickers, p=None):
+    def is_balanced(self, tickers, p=None, verbose=False):
         if p is None:
             p = [1. / len(tickers)] * len(tickers)
         tickers = np.array(tickers, dtype=np.str)
@@ -272,20 +278,21 @@ class Trader:
         owned_value = owned_units * market_value
 
         print('needs fixing... and recomputed for weighted mean')
-        margin = np.max(market_value / 2)
-        std = np.std(owned_value)
-        self.std_history.append(std)
-        print(f'std: {std} - margin: {margin}')
-        if std < margin:
-            # the portfolio is balanced up to the margin
-            return True
 
+        # every ticker allowed to be far from the mean by a half of its single unit
+        allowed_margin = np.sum(market_value / 2)
+        goal_values = np.sum(owned_value) * p
+        total_error = np.sum(np.abs(owned_value - goal_values))
+        if verbose:
+            print('| Current Error: {:10.2f} | Allowed Error: {:10.2f}'
+                  .format(np.round(total_error), np.round(allowed_margin)))
+
+        if total_error < allowed_margin:
+            # the portfolio is balanced up to the allowed margin
+            return True
         else:
             # the portfolio is not balanced
             return False
-
-    def mean_balance(self):
-        pass
 
 
 
