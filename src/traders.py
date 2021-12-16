@@ -1,17 +1,16 @@
 import numpy as np
-import pandas as pd
-from datetime import date
 from markets import Market
 from brokers import Broker
 
 
 class Trader:
     """ A Trader class for Backtesting simulation of a periodic balancing strategy for stocks trading"""
-    def __init__(self, liquid, balance_period, broker: Broker, market: Market):
+    def __init__(self, liquid, balance_period, broker: Broker, market: Market, verbose=False):
         self.liquid = liquid
         self.balance_period = balance_period
         self.broker = broker
         self.market = market
+        self.verbose = verbose
 
         # Trader's portfolio
         self.portfolio = {}
@@ -31,7 +30,13 @@ class Trader:
         self.buy_fee_history = []
         self.tax_history = []
 
-    def buy(self, ticker, units, verbose=False):
+    def buy(self, ticker, units):
+        """
+        This function is used for buying new storks and adding them to the trader's portfolio
+        :param ticker: the ticker of the stock
+        :param units: number of units to buy
+        :return: True / False boolean if the trade is succeed / not
+        """
         ticker = ticker.upper()
 
         # get the stock current price
@@ -55,24 +60,25 @@ class Trader:
             # add ticker to portfolio
             if ticker not in self.portfolio:
                 self.portfolio[ticker] = []
-                self.portfolio_meta[ticker] = {'units':             0,
-                                               'cum primary value': 0.0,
-                                               'cum market value':  0.0,
-                                               'sign':              0,
-                                               'percent':           0.0}
+                self.portfolio_meta[ticker] = {'units': 0, 'sign': 0}
 
-            for stock in stocks:
-                self.portfolio[ticker].append(stock)
-                self.portfolio_meta[ticker]['units'] += 1
-                self.portfolio_meta[ticker]['cum primary value'] += price
-                self.portfolio_meta[ticker]['cum market value'] += price
-            if verbose:
-                print('[+] BUY  | Ticker: {:10s} | Units: {:8.0f} | Total price: {:14.2f} | Fee: {:10.2f} |'
+            self.portfolio[ticker] += stocks
+            self.portfolio_meta[ticker]['units'] += units
+            self.portfolio_primary_value += price
+
+            if self.verbose:
+                print('[+] BUY  | Ticker: {:6s} | Units: {:4.0f} | Total price: {:10.2f} | Fee: {:8.2f} |'
                       .format(ticker, units, np.round(total_price, 2), np.round(fee, 2)))
 
             return True
 
-    def sell(self, ticker, units, verbose=False):
+    def sell(self, ticker, units):
+        """
+        This function is used for selling stocks from the trader's portfolio
+        :param ticker: the ticker of the stock
+        :param units: number of units to sell
+        :return: True / False boolean if the trade is succeed / not
+        """
         ticker = ticker.upper()
 
         # check trader got enough stocks to complete the sell
@@ -86,25 +92,20 @@ class Trader:
                 stock = self.portfolio[ticker].pop(0)
                 primary_price = stock['Open'].values[0]
                 self.portfolio_meta[ticker]['units'] -= 1
-                self.portfolio_meta[ticker]['cum primary value'] -= primary_price
+                self.portfolio_primary_value -= primary_price
                 stocks_to_sell.append(stock)
 
             # send stocks to broker and collect money
             money, fee, tax = self.broker.sell_now(ticker, stocks_to_sell)
-            print(ticker, money, fee, tax)
             self.sell_fee_history.append(fee)
             self.tax_history.append(tax)
 
-            # add money to liquid
-            self.liquid += money
+            # update the amount of liquid
+            self.liquid += money - fee - tax
 
-            # subtract fee and tax
-            self.liquid -= fee
-            self.liquid -= tax
-
-            if verbose:
-                print('[+] SELL | Ticker: {:10s} | Units: {:8.0f} | Total price: {:14.2f} | Fee: {:10.2f} '
-                      '| Tax: {:10.2f} |'.format(ticker, units, np.round(money, 2), np.round(fee, 2), np.round(tax, 2)))
+            if self.verbose:
+                print('[+] SELL | Ticker: {:6s} | Units: {:4.0f} | Total price: {:10.2f} | Fee: {:8.2f} '
+                      '| Tax: {:8.2f} |'.format(ticker, units, np.round(money, 2), np.round(fee, 2), np.round(tax, 2)))
 
             return True
         else:
@@ -112,53 +113,56 @@ class Trader:
             return False
 
     def update(self):
-        # update the portfolio state with market's current prices
-        self.portfolio_primary_value = 0
+        """
+        Function for updating the portfolio with the current market value of all stocks and computing the total profit
+        :return: None
+        """
+        # update the portfolio market current prices
         self.portfolio_market_value = 0
-        self.fees_and_tax = np.sum(self.buy_fee_history) + np.sum(self.sell_fee_history) + np.sum(self.tax_history)
 
-        # update prices for all owned stocks
+        # update market prices for all owned stocks
         for ticker in self.portfolio:
-            current_price = self.market.get_stock_data(ticker, 'Close')
-            own_units = self.portfolio_meta[ticker]['units']
-            buy_value = self.portfolio_meta[ticker]['cum primary value']
-            self.portfolio_meta[ticker]['cum market value'] = own_units * current_price
+            market_price = self.market.get_stock_data(ticker, 'Open')
+            units = self.portfolio_meta[ticker]['units']
+            self.portfolio_market_value += units * market_price
 
-            # compute portfolio buy value
-            self.portfolio_primary_value += buy_value
-
-            # compute portfolio current value
-            self.portfolio_market_value += own_units * current_price
-
-        # compute percentage of each stock value from portfolio current value
-        for ticker in self.portfolio:
-            self.portfolio_meta[ticker]['percent'] = self.portfolio_meta[ticker]['cum market value'] / \
-                                                     self.portfolio_market_value
-
-            # compute the sign which indicates if the stock is profitable at the moment
-            self.portfolio_meta[ticker]['sign'] = np.sign(self.portfolio_meta[ticker]['cum market value'] -
-                                                          self.portfolio_meta[ticker]['cum primary value'])
         # compute portfolio profit
+        self.fees_and_tax = np.sum(self.buy_fee_history) + np.sum(self.sell_fee_history) + np.sum(self.tax_history)
         self.portfolio_profit = self.portfolio_market_value - self.portfolio_primary_value - self.fees_and_tax
 
     def step(self, last_date):
-        # update portfolio state and values
+        """
+        Step one trading day ahead while updating the portfolio and saving portfolio history data for later analysis
+        :param last_date: the current trading date
+        :return: None
+        """
+        # update portfolio
         self.update()
 
-        # save history
+        # save trading history
         self.liquid_history.append(self.liquid)
         self.profit_history.append(self.portfolio_profit)
         self.portfolio_value_history.append(self.portfolio_market_value)
         self.date_history.append(last_date)
 
-    def balance(self, tickers: list, p=None, verbose=False):
+    def balance(self, tickers: list, p=None):
+        """
+        This function balances the trader's portfolio according to a given weight list
+        :param tickers: All the tickers in the portfolio (type: list)
+        :param p: The weights for balancing with respect to the tickers order (type: list )
+        :return: None
+        """
         if p is None:
             p = [1. / len(tickers)] * len(tickers)
         tickers = np.array(tickers, dtype=np.str)
         p = np.array(p, dtype=np.float)
 
+        if self.verbose:
+            print('\n')
+            print('|------------------------------------------ BALANCING --------------------------------------------|')
+
         # check if the portfolio is balanced
-        if self.is_balanced(tickers, p=p, verbose=verbose):
+        if self.is_balanced(tickers, p=p):
             return
 
         # get tickers information
@@ -246,17 +250,16 @@ class Trader:
         units_to_max_sign = units_to_max_sign[execution_order]
         units_to_max = units_to_max[execution_order]
 
-        if verbose:
-            print('\n')
-            print('| Liquid: {:14.2f} |'.format(np.round(self.liquid, 2)))
-            verbose_str = []
+        if self.verbose:
+            print('[+] Liquid: {:14.2f} '.format(np.round(self.liquid, 2)))
+            verbose_str = ['[+] NEXT ']
             for ticker in tickers:
                 verbose_str.append('| ')
                 verbose_str.append(ticker)
-                verbose_str.append(': {:14.2f} ')
+                verbose_str.append(': {:10.2f} ')
             verbose_str.append('|')
 
-            print(''.join(verbose_str).format(values_for_execution[execution_order]))
+            print(''.join(verbose_str).format(*values_for_execution[execution_order]))
 
         # execute balance
         for i, ticker in enumerate(tickers):
@@ -266,9 +269,18 @@ class Trader:
                 self.sell(ticker, units_to_max[i])
 
         self.update()
-        self.is_balanced(tickers, p=p, verbose=verbose)
+        self.is_balanced(tickers, p=p)
 
-    def is_balanced(self, tickers, p=None, verbose=False):
+        if self.verbose:
+            print('|-------------------------------------------------------------------------------------------------|')
+
+    def is_balanced(self, tickers, p=None):
+        """
+        A function which checks if the trader's portfolio is in balance
+        :param tickers: All the tickers in the portfolio (type: list)
+        :param p: The weights for balancing with respect to the tickers order (type: list )
+        :return: None
+        """
         if p is None:
             p = [1. / len(tickers)] * len(tickers)
         tickers = np.array(tickers, dtype=np.str)
@@ -283,13 +295,11 @@ class Trader:
             market_value[i] = self.market.get_stock_data(ticker, 'Open')
         owned_value = owned_units * market_value
 
-        print('needs fixing... and recomputed for weighted mean')
-
-        # every ticker allowed to be far from the mean by a half of its single unit
+        # compute the half single unit margin error
         allowed_margin = np.sum(market_value / 2)
         goal_values = np.sum(owned_value) * p
         total_error = np.sum(np.abs(owned_value - goal_values))
-        if verbose:
+        if self.verbose:
             print('| Current Error: {:10.2f} | Allowed Error: {:10.2f}'
                   .format(np.round(total_error), np.round(allowed_margin)))
 
