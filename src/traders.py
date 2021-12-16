@@ -6,11 +6,12 @@ from brokers import Broker
 
 
 class Trader:
-    def __init__(self, liquid, balance_liquid_lim, balance_period, my_broker: Broker, my_market: Market):
+    """ A Trader class for Backtesting simulation of a periodic balancing strategy for stocks trading"""
+    def __init__(self, liquid, balance_liquid_lim, balance_period, broker: Broker, my_market: Market):
         self.liquid = liquid
         self.balance_liquid_lim = balance_liquid_lim
         self.balance_period = balance_period
-        self.my_broker = my_broker
+        self.broker = broker
         self.my_market = my_market
         self.portfolio = {}
         self.portfolio_state = {}
@@ -36,12 +37,12 @@ class Trader:
 
         # verify trader got enough liquid to complete the trade
         if units * price > self.liquid:
-            print(f'Trader does not have enough money to complete the {ticker} stock trade.')
+            print(f'Trader does not have enough liquid money to complete the {ticker} stock trade.')
             return False
 
         else:
             # buy the stocks
-            stocks, total_price, fee = self.my_broker.buy_now(ticker, units)
+            stocks, total_price, fee = self.broker.buy_now(ticker, units)
             print(ticker, total_price, fee)
             self.buy_fee_history.append(fee)
 
@@ -67,7 +68,7 @@ class Trader:
     def sell(self, ticker, units):
         ticker = ticker.upper()
 
-        # check trader got enough stocks to complete the trade
+        # check trader got enough stocks to complete the sell
         if self.portfolio_state[ticker]['units'] >= units:
             stocks_to_sell = []
 
@@ -87,7 +88,7 @@ class Trader:
                 stocks_to_sell.append(stock)
 
             # send stocks to broker and get money back
-            money, fee, tax = self.my_broker.sell_now(ticker, stocks_to_sell)
+            money, fee, tax = self.broker.sell_now(ticker, stocks_to_sell)
             print(ticker, money, fee, tax)
             self.sell_fee_history.append(fee)
             self.tax_history.append(tax)
@@ -144,89 +145,106 @@ class Trader:
         self.portfolio_value_history.append(self.portfolio_current_value)
         self.date_history.append(last_date)
 
-    def balance(self, tickers):
-        tickers = np.array(tickers)
+    def balance(self, tickers: list, p=None, verbose=False):
+        if p is None:
+            p = [1. / len(tickers)] * len(tickers)
+        tickers = np.array(tickers, dtype=np.str)
+        p = np.array(p, dtype=np.float)
 
         # check if the portfolio is balanced
-        if self.is_balanced(tickers):
+        if self.is_balanced(tickers, p=p):
             return
 
-        # get ticker information
+        # get tickers information
         owned_units = np.zeros(len(tickers), dtype=np.int)
         market_value = np.zeros(len(tickers), dtype=np.float)
         owned_value = np.zeros(len(tickers), dtype=np.float)
-        owned_percentage = np.zeros(len(tickers), dtype=np.float)
-        predicted_tax = np.zeros(len(tickers), dtype=np.float)
-        predicted_max_tax = np.zeros(len(tickers), dtype=np.float)
+        tax = np.zeros(len(tickers), dtype=np.float)
+        max_tax = np.zeros(len(tickers), dtype=np.float)
         stocks_buy_value = {}
 
+        # collect the data
         for i, ticker in enumerate(tickers):
             owned_units[i] = self.portfolio_state[ticker]['units']
             market_value[i] = self.my_market.get_stock_data(ticker, 'Open')
             owned_value[i] = owned_units[i] * market_value[i]
-            owned_percentage[i] = self.portfolio_state[ticker]['percent']
-            stocks_buy_value[ticker] = []
-            for stock in self.portfolio[ticker]:
-                stocks_buy_value[ticker].append(stock['Open'].values[0])
+            stocks_buy_value[ticker] = [stock['Open'].values[0] for stock in self.portfolio[ticker]]
 
-        # compute tax if balance to the mean up to the margin (worst case)
+        # compute tax for balancing to the mean (worst case)
         mean_balance = np.mean(owned_value)
 
-        # positive = buy, negative = sell
-        units_to_mean = np.array(np.round((mean_balance - owned_value) / market_value), dtype=np.int)  # round to closest integer
-        units_to_mean_sign = np.sign(units_to_mean)
-        units_to_mean = np.abs(units_to_mean)
+        # compute the number of units needed to balanced portfolio (buy: positive, sell: negative)
+        units_to_mean = np.array(np.round((mean_balance - owned_value) / market_value), dtype=np.int)
+        units_to_mean_sign = np.sign(units_to_mean)     # sign
+        units_to_mean = np.abs(units_to_mean)           # value
 
-        # compute the tax on profits and total fees
+        # compute the tax and total fees for this set of trades
         for i, ticker in enumerate(tickers):
             if units_to_mean_sign[i] < 0:
                 total_market_value = units_to_mean[i] * market_value[i]
-                owned_units_value = np.sum(stocks_buy_value[ticker][:units_to_mean[i]])
-                predicted_tax[i] = (total_market_value - owned_units_value) * self.my_broker.tax
-        predicted_tax = predicted_tax * (predicted_tax > 0)
-        estimated_sell_fee = np.max([np.sum(units_to_mean * (units_to_mean_sign > 0)) * self.my_broker.sell_fee, self.my_broker.min_sell_fee])
-        estimated_buy_fee = np.max([np.sum(units_to_mean * (units_to_mean_sign < 0)) * self.my_broker.buy_fee, self.my_broker.min_buy_fee])
-        estimated_fee = estimated_sell_fee + estimated_buy_fee
+                total_owned_value = np.sum(stocks_buy_value[ticker][:units_to_mean[i]])
+                tax[i] = (total_market_value - total_owned_value) * self.broker.tax
 
-        # compute the estimated amount of liquid
-        usable_liquid = self.liquid + np.sum(owned_value) - np.sum(predicted_tax) - estimated_fee
+        # drop the negative tax (which comes from selling in loss)
+        tax = tax * (tax > 0)
 
-        # compute the balance to the maximum mean
-        value_per_ticker = usable_liquid / len(tickers)
-        units_of_balanced = np.array(np.round(value_per_ticker / market_value), dtype=np.int)
-        units_to_max = units_of_balanced - owned_units
-        units_to_max_sign = np.sign(units_to_max)
-        units_to_max = np.abs(units_to_max)
+        # compute the fees for trades
+        sell_fee = np.max([np.sum(units_to_mean * (units_to_mean_sign > 0)) *
+                           self.broker.sell_fee, self.broker.min_sell_fee])
+        buy_fee = np.max([np.sum(units_to_mean * (units_to_mean_sign < 0)) *
+                          self.broker.buy_fee, self.broker.min_buy_fee])
+        total_fee = sell_fee + buy_fee
 
-        # recompute the usable liquid
-        max_sell_fee = np.max([np.sum(market_value * units_to_max * (units_to_max_sign < 0)) * self.my_broker.sell_fee, self.my_broker.min_sell_fee])
-        max_buy_fee = np.max([np.sum(market_value * units_to_max * (units_to_max_sign > 0)) * self.my_broker.buy_fee, self.my_broker.min_buy_fee])
-        estimated_max_fee = max_sell_fee + max_buy_fee
+        # compute the estimated amount of total liquid (trader's portfolio market value + total liquid - tax and fees
+        # used for balancing to the mean)
+        usable_liquid = self.liquid + np.sum(owned_value) - np.sum(tax) - total_fee
+
+        # compute the units needed for balancing to the maximal weighted mean possible
+        value_to_max = usable_liquid * p
+        units_of_maxed = np.array(np.round(value_to_max / market_value), dtype=np.int)
+        units_to_max = units_of_maxed - owned_units
+        units_to_max_sign = np.sign(units_to_max)       # sign
+        units_to_max = np.abs(units_to_max)             # value
+
+        # compute the tax for balancing at the maximal mean possible
         for i, ticker in enumerate(tickers):
             if units_to_max_sign[i] < 0:
                 total_market_value = units_to_max[i] * market_value[i]
-                owned_units_value = np.sum(stocks_buy_value[ticker][:units_to_max[i]])
-                predicted_max_tax[i] = (total_market_value - owned_units_value) * self.my_broker.tax
-        usable_liquid = self.liquid + np.sum(owned_value) - np.sum(predicted_max_tax) - estimated_max_fee
+                total_owned_value = np.sum(stocks_buy_value[ticker][:units_to_max[i]])
+                max_tax[i] = (total_market_value - total_owned_value) * self.broker.tax
 
-        # recompute the balance to the maximum mean
-        value_per_ticker = usable_liquid / len(tickers)
-        units_of_balanced = np.array(value_per_ticker / market_value, dtype=np.int)
-        units_to_max = units_of_balanced - owned_units
-        units_to_max_sign = np.sign(units_to_max)
-        units_to_max = np.abs(units_to_max)
+        # drop the negative tax (which comes from selling in loss)
+        max_tax = max_tax * (max_tax > 0)
 
-        # reorder operations such that selling comes before buying
-        execution_values = units_to_max_sign * units_to_max * market_value
-        execution_order = np.argsort(execution_values)
+        # compute the fee for balancing at the maximal mean possible
+        max_sell_fee = np.max([np.sum(market_value * units_to_max * (units_to_max_sign < 0)) *
+                               self.broker.sell_fee, self.broker.min_sell_fee])
+        max_buy_fee = np.max([np.sum(market_value * units_to_max * (units_to_max_sign > 0)) *
+                              self.broker.buy_fee, self.broker.min_buy_fee])
+        max_total_fee = max_sell_fee + max_buy_fee
+
+        # compute the total liquid assuming the trader is balancing to the maximal mean possible
+        usable_liquid = self.liquid + np.sum(owned_value) - np.sum(max_tax) - max_total_fee
+
+        # recompute the units needed for balancing to the maximal weighted mean possible
+        value_to_max = usable_liquid * p
+        units_of_maxed = np.array(value_to_max / market_value, dtype=np.int)
+        units_to_max = units_of_maxed - owned_units
+        units_to_max_sign = np.sign(units_to_max)       # sign
+        units_to_max = np.abs(units_to_max)             # value
+
+        # sort operations such that selling comes before buying
+        values_for_execution = units_to_max_sign * units_to_max * market_value
+        execution_order = np.argsort(values_for_execution)
         tickers = tickers[execution_order]
         units_to_max_sign = units_to_max_sign[execution_order]
         units_to_max = units_to_max[execution_order]
 
-
-        print('\n')
-        print(self.liquid)
-        print(execution_values[execution_order])
+        if verbose:
+            print('\n')
+            print("| Liquid: {:14.2} |".format(np.round(self.liquid, 2)))
+            print(tickers)
+            print(values_for_execution[execution_order])
 
         # execute balance
         for i, ticker in enumerate(tickers):
@@ -236,20 +254,24 @@ class Trader:
                 self.sell(ticker, units_to_max[i])
 
         self.update()
-        self.is_balanced(tickers)
+        self.is_balanced(tickers, p=p)
 
-    def is_balanced(self, tickers, percentages=None):
+    def is_balanced(self, tickers, p=None):
+        if p is None:
+            p = [1. / len(tickers)] * len(tickers)
+        tickers = np.array(tickers, dtype=np.str)
+        p = np.array(p, dtype=np.float)
 
+        # compute the owned value per ticker
         owned_units = np.zeros(len(tickers), dtype=np.int)
         market_value = np.zeros(len(tickers), dtype=np.float)
-        owned_value = np.zeros(len(tickers), dtype=np.float)
 
         for i, ticker in enumerate(tickers):
             owned_units[i] = self.portfolio_state[ticker]['units']
             market_value[i] = self.my_market.get_stock_data(ticker, 'Open')
-            owned_value[i] = owned_units[i] * market_value[i]
+        owned_value = owned_units * market_value
 
-        print('needs fixing...')
+        print('needs fixing... and recomputed for weighted mean')
         margin = np.max(market_value / 2)
         std = np.std(owned_value)
         self.std_history.append(std)

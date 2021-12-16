@@ -5,7 +5,7 @@ from traders import Trader
 from utils import plot_trader_data, compare_traders
 import copy as cp
 
-periods = [1, 2, 4, 8, 16, 32, 64, 128, 256]
+periods = [1, 2, 4]
 the_traders = []
 
 tickers = ['AAPL', 'GOOG', 'SPY', 'TSLA', 'ORCL']
@@ -21,7 +21,7 @@ for i, period in enumerate(periods):
     market.current_date = first_date
 
     # init new trader
-    trader = Trader(liquid=50000, balance_liquid_lim=2000, balance_period=period, my_broker=broker, my_market=market)
+    trader = Trader(liquid=50000, balance_liquid_lim=2000, balance_period=period, broker=broker, my_market=market)
 
     # buy some stocks
     trader.buy('AAPL', 20)
