@@ -47,17 +47,3 @@ class Broker:
 
         return current_total_price, sell_fee, tax
 
-    def add_buy(self):
-        pass
-
-    def add_sell(self):
-        pass
-
-    def execute_buys(self):
-        pass
-
-    def execute_sells(self):
-        pass
-
-    def charge_trader(self):
-        pass
