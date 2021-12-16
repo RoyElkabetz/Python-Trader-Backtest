@@ -5,7 +5,7 @@ from traders import Trader
 from utils import plot_trader, compare_traders
 import copy as cp
 
-periods = [1, 2, 4]
+periods = [4]
 the_traders = []
 
 tickers = ['AAPL', 'GOOG', 'SPY', 'TSLA', 'ORCL']
@@ -30,7 +30,7 @@ for i, period in enumerate(periods):
     trader.buy('ORCL', 40)
 
     trader_tickers = list(trader.portfolio.keys())
-    trader.balance(trader_tickers)
+    trader.balance(trader_tickers, p=[0.1, 0.2, 0.3, 0.4])
 
     done = False
     steps = 0
@@ -41,7 +41,7 @@ for i, period in enumerate(periods):
         trader.step(previous_date)
         if steps % trader.balance_period == 0:
 
-            trader.balance(trader_tickers)
+            trader.balance(trader_tickers, p=[0.1, 0.2, 0.3, 0.4])
     the_traders.append(trader)
 
 compare_traders(the_traders, periods, 'bp', interval=np.int(len(trader.date_history) / 10))
