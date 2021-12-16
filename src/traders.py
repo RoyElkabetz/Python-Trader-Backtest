@@ -7,43 +7,43 @@ from brokers import Broker
 
 class Trader:
     """ A Trader class for Backtesting simulation of a periodic balancing strategy for stocks trading"""
-    def __init__(self, liquid, balance_liquid_lim, balance_period, broker: Broker, my_market: Market):
+    def __init__(self, liquid, balance_period, broker: Broker, market: Market):
         self.liquid = liquid
-        self.balance_liquid_lim = balance_liquid_lim
         self.balance_period = balance_period
         self.broker = broker
-        self.my_market = my_market
+        self.market = market
+
+        # Trader's portfolio
         self.portfolio = {}
-        self.portfolio_state = {}
-        self.portfolio_buy_value = 0
-        self.portfolio_current_value = 0
+        self.portfolio_meta = {}
+        self.portfolio_primary_value = 0
+        self.portfolio_market_value = 0
         self.portfolio_profit = 0
         self.fees_and_tax = 0
 
+        # Save trading history
         self.liquid_history = []
         self.profit_history = []
         self.portfolio_value_history = []
         self.date_history = []
-        self.std_history = []
+        self.error_history = []
         self.sell_fee_history = []
         self.buy_fee_history = []
         self.tax_history = []
 
-    def buy(self, ticker, units):
+    def buy(self, ticker, units, verbose=False):
         ticker = ticker.upper()
 
         # get the stock current price
-        price = self.my_market.get_stock_data(ticker, 'Open')
+        price = self.market.get_stock_data(ticker, 'Open')
 
         # verify trader got enough liquid to complete the trade
         if units * price > self.liquid:
-            print(f'Trader does not have enough liquid money to complete the {ticker} stock trade.')
+            print(f'\n[+][+] Trader does not have enough liquid money to complete the {ticker} stock trade.\n')
             return False
-
         else:
             # buy the stocks
             stocks, total_price, fee = self.broker.buy_now(ticker, units)
-            print(ticker, total_price, fee)
             self.buy_fee_history.append(fee)
 
             # pay price
@@ -52,42 +52,44 @@ class Trader:
             # pay fee
             self.liquid -= fee
 
-            # add stocks to portfolio
+            # add ticker to portfolio
             if ticker not in self.portfolio:
                 self.portfolio[ticker] = []
-                self.portfolio_state[ticker] = {'units': 0, 'buy value': 0.0, 'current value': 0.0, 'sign': 0, 'percent': 0.0}
+                self.portfolio_meta[ticker] = {'units':             0,
+                                               'cum primary value': 0.0,
+                                               'cum market value':  0.0,
+                                               'sign':              0,
+                                               'percent':           0.0}
 
             for stock in stocks:
                 self.portfolio[ticker].append(stock)
-                self.portfolio_state[ticker]['units'] += 1
-                self.portfolio_state[ticker]['buy value'] += price
-                self.portfolio_state[ticker]['current value'] += price
+                self.portfolio_meta[ticker]['units'] += 1
+                self.portfolio_meta[ticker]['cum primary value'] += price
+                self.portfolio_meta[ticker]['cum market value'] += price
+            if verbose:
+                print('[+] BUY  | Ticker: {:10s} | Units: {:8.0f} | Total price: {:14.2f} | Fee: {:10.2f} |'
+                      .format(ticker, units, np.round(total_price, 2), np.round(fee, 2)))
 
             return True
 
-    def sell(self, ticker, units):
+    def sell(self, ticker, units, verbose=False):
         ticker = ticker.upper()
 
         # check trader got enough stocks to complete the sell
-        if self.portfolio_state[ticker]['units'] >= units:
+        if self.portfolio_meta[ticker]['units'] >= units:
             stocks_to_sell = []
 
-            # remove stocks from portfolio (FIFO)
+            # remove stocks from portfolio in a FIFO order (first in first out)
             for _ in range(units):
-                # remove stock
+
+                # remove stock from portfolio and subtract its primary value from the cumulative primary value
                 stock = self.portfolio[ticker].pop(0)
-
-                # get price when bought
-                buy_price = stock['Open'].values[0]
-
-                # remove a single unit from portfolio
-                self.portfolio_state[ticker]['units'] -= 1
-
-                # remove "buy value" of stock
-                self.portfolio_state[ticker]['buy value'] -= buy_price
+                primary_price = stock['Open'].values[0]
+                self.portfolio_meta[ticker]['units'] -= 1
+                self.portfolio_meta[ticker]['cum primary value'] -= primary_price
                 stocks_to_sell.append(stock)
 
-            # send stocks to broker and get money back
+            # send stocks to broker and collect money
             money, fee, tax = self.broker.sell_now(ticker, stocks_to_sell)
             print(ticker, money, fee, tax)
             self.sell_fee_history.append(fee)
@@ -100,40 +102,44 @@ class Trader:
             self.liquid -= fee
             self.liquid -= tax
 
+            if verbose:
+                print('[+] SELL | Ticker: {:10s} | Units: {:8.0f} | Total price: {:14.2f} | Fee: {:10.2f} '
+                      '| Tax: {:10.2f} |'.format(ticker, units, np.round(money, 2), np.round(fee, 2), np.round(tax, 2)))
+
             return True
         else:
-            print(f'The trader dont have enough {ticker} stocks to complete the trade.')
+            print(f'\n[+][+] The trader does not have enough {ticker} units to complete the trade.\n')
             return False
 
     def update(self):
         # update the portfolio state with market's current prices
-        self.portfolio_buy_value = 0
-        self.portfolio_current_value = 0
+        self.portfolio_primary_value = 0
+        self.portfolio_market_value = 0
         self.fees_and_tax = np.sum(self.buy_fee_history) + np.sum(self.sell_fee_history) + np.sum(self.tax_history)
 
         # update prices for all owned stocks
         for ticker in self.portfolio:
-            current_price = self.my_market.get_stock_data(ticker, 'Close')
-            own_units = self.portfolio_state[ticker]['units']
-            buy_value = self.portfolio_state[ticker]['buy value']
-            self.portfolio_state[ticker]['current value'] = own_units * current_price
+            current_price = self.market.get_stock_data(ticker, 'Close')
+            own_units = self.portfolio_meta[ticker]['units']
+            buy_value = self.portfolio_meta[ticker]['cum primary value']
+            self.portfolio_meta[ticker]['cum market value'] = own_units * current_price
 
             # compute portfolio buy value
-            self.portfolio_buy_value += buy_value
+            self.portfolio_primary_value += buy_value
 
             # compute portfolio current value
-            self.portfolio_current_value += own_units * current_price
+            self.portfolio_market_value += own_units * current_price
 
         # compute percentage of each stock value from portfolio current value
         for ticker in self.portfolio:
-            self.portfolio_state[ticker]['percent'] = self.portfolio_state[ticker]['current value'] / \
-                                                      self.portfolio_current_value
+            self.portfolio_meta[ticker]['percent'] = self.portfolio_meta[ticker]['cum market value'] / \
+                                                     self.portfolio_market_value
 
             # compute the sign which indicates if the stock is profitable at the moment
-            self.portfolio_state[ticker]['sign'] = np.sign(self.portfolio_state[ticker]['current value'] -
-                                                           self.portfolio_state[ticker]['buy value'])
+            self.portfolio_meta[ticker]['sign'] = np.sign(self.portfolio_meta[ticker]['cum market value'] -
+                                                          self.portfolio_meta[ticker]['cum primary value'])
         # compute portfolio profit
-        self.portfolio_profit = self.portfolio_current_value - self.portfolio_buy_value - self.fees_and_tax
+        self.portfolio_profit = self.portfolio_market_value - self.portfolio_primary_value - self.fees_and_tax
 
     def step(self, last_date):
         # update portfolio state and values
@@ -142,7 +148,7 @@ class Trader:
         # save history
         self.liquid_history.append(self.liquid)
         self.profit_history.append(self.portfolio_profit)
-        self.portfolio_value_history.append(self.portfolio_current_value)
+        self.portfolio_value_history.append(self.portfolio_market_value)
         self.date_history.append(last_date)
 
     def balance(self, tickers: list, p=None, verbose=False):
@@ -165,8 +171,8 @@ class Trader:
 
         # collect the data
         for i, ticker in enumerate(tickers):
-            owned_units[i] = self.portfolio_state[ticker]['units']
-            market_value[i] = self.my_market.get_stock_data(ticker, 'Open')
+            owned_units[i] = self.portfolio_meta[ticker]['units']
+            market_value[i] = self.market.get_stock_data(ticker, 'Open')
             owned_value[i] = owned_units[i] * market_value[i]
             stocks_buy_value[ticker] = [stock['Open'].values[0] for stock in self.portfolio[ticker]]
 
@@ -273,8 +279,8 @@ class Trader:
         market_value = np.zeros(len(tickers), dtype=np.float)
 
         for i, ticker in enumerate(tickers):
-            owned_units[i] = self.portfolio_state[ticker]['units']
-            market_value[i] = self.my_market.get_stock_data(ticker, 'Open')
+            owned_units[i] = self.portfolio_meta[ticker]['units']
+            market_value[i] = self.market.get_stock_data(ticker, 'Open')
         owned_value = owned_units * market_value
 
         print('needs fixing... and recomputed for weighted mean')

@@ -11,7 +11,7 @@ def plot_trader(trader: Trader, interval=20):
     profit_history = trader.profit_history
     liquid_history = trader.liquid_history
     portfolio_value_history = trader.portfolio_value_history
-    std_history = trader.std_history
+    std_history = trader.error_history
     date_history = trader.date_history
 
     # plots
