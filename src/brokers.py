@@ -7,11 +7,11 @@ class Broker:
     def __init__(self, buy_fee: float, min_buy_fee: float,
                  sell_fee: float, min_sell_fee: float, tax: float, my_market: Market):
         self.my_market = my_market
-        self.buy_fee = buy_fee
+        self.buy_fee = buy_fee / 100.
         self.min_buy_fee = min_buy_fee
-        self.sell_fee = sell_fee
+        self.sell_fee = sell_fee / 100.
         self.min_sell_fee = min_sell_fee
-        self.tax = tax
+        self.tax = tax / 100.
         self.pending_buys = []
         self.pending_sells = []
 

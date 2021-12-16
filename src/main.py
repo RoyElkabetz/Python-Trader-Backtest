@@ -10,7 +10,7 @@ the_traders = []
 
 tickers = ['AAPL', 'GOOG', 'SPY', 'TSLA', 'ORCL']
 market = Market(tickers, start_date=(2019, 1, 1), end_date=(2022, 1, 1))
-broker = Broker(buy_fee=0.0008, min_buy_fee=2, sell_fee=0.0008, min_sell_fee=2, tax=0.25, my_market=market)
+broker = Broker(buy_fee=0.08, min_buy_fee=2, sell_fee=0.08, min_sell_fee=2, tax=25, my_market=market)
 first_date = cp.copy(market.current_date)
 
 for i, period in enumerate(periods):
