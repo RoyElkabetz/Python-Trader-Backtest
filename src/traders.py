@@ -272,7 +272,7 @@ class Trader:
                 self.sell(ticker, units_to_max[i])
 
         self.update()
-        self.is_balanced(tickers, p=p)
+        self.is_balanced(tickers, p=p[execution_order])
 
         if self.verbose:
             print('|-------------------------------------------------------------------------------------------------|')
