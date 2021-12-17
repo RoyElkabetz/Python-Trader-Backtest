@@ -19,6 +19,7 @@ class Trader:
         self.portfolio_market_value = 0
         self.portfolio_profit = 0
         self.fees_and_tax = 0
+        self.usable_liquid = 0
 
         # Save trading history
         self.liquid_history = []
@@ -161,10 +162,6 @@ class Trader:
             print('\n')
             print('|------------------------------------------ BALANCING --------------------------------------------|')
 
-        # check if the portfolio is balanced
-        if self.is_balanced(tickers, p=p):
-            return
-
         # get tickers information
         owned_units = np.zeros(len(tickers), dtype=np.int)
         market_value = np.zeros(len(tickers), dtype=np.float)
@@ -181,7 +178,8 @@ class Trader:
             stocks_buy_value[ticker] = [stock['Open'].values[0] for stock in self.portfolio[ticker]]
 
         # compute tax for balancing to the mean (worst case)
-        mean_balance = np.mean(owned_value)
+        margin = np.sum(market_value) / 2
+        mean_balance = np.mean(owned_value) - margin
 
         # compute the number of units needed to balanced portfolio (buy: positive, sell: negative)
         units_to_mean = np.array(np.round((mean_balance - owned_value) / market_value), dtype=np.int)
@@ -199,18 +197,19 @@ class Trader:
         tax = tax * (tax > 0)
 
         # compute the fees for trades
-        sell_fee = np.max([np.sum(units_to_mean * (units_to_mean_sign > 0)) *
-                           self.broker.sell_fee, self.broker.min_sell_fee])
-        buy_fee = np.max([np.sum(units_to_mean * (units_to_mean_sign < 0)) *
-                          self.broker.buy_fee, self.broker.min_buy_fee])
+        sell_fee = np.max([np.sum(market_value * units_to_mean * (units_to_mean_sign < 0)) *
+                           self.broker.sell_fee, np.sum(units_to_mean_sign < 0) * self.broker.min_sell_fee])
+        buy_fee = np.max([np.sum(market_value * units_to_mean * (units_to_mean_sign > 0)) *
+                          self.broker.buy_fee, np.sum(units_to_mean_sign > 0) * self.broker.min_buy_fee])
         total_fee = sell_fee + buy_fee
 
         # compute the estimated amount of total liquid (trader's portfolio market value + total liquid - tax and fees
         # used for balancing to the mean)
-        usable_liquid = self.liquid + np.sum(owned_value) - np.sum(tax) - total_fee
+        self.usable_liquid = self.liquid + np.sum(owned_value) - np.sum(tax) - total_fee
 
         # compute the units needed for balancing to the maximal weighted mean possible
-        value_to_max = usable_liquid * p
+        margins = market_value / 2
+        value_to_max = self.usable_liquid * p - margins
         units_of_maxed = np.array(np.round(value_to_max / market_value), dtype=np.int)
         units_to_max = units_of_maxed - owned_units
         units_to_max_sign = np.sign(units_to_max)       # sign
@@ -228,17 +227,17 @@ class Trader:
 
         # compute the fee for balancing at the maximal mean possible
         max_sell_fee = np.max([np.sum(market_value * units_to_max * (units_to_max_sign < 0)) *
-                               self.broker.sell_fee, self.broker.min_sell_fee])
+                               self.broker.sell_fee, np.sum(units_to_max_sign < 0) * self.broker.min_sell_fee])
         max_buy_fee = np.max([np.sum(market_value * units_to_max * (units_to_max_sign > 0)) *
-                              self.broker.buy_fee, self.broker.min_buy_fee])
+                              self.broker.buy_fee, np.sum(units_to_max_sign > 0) * self.broker.min_buy_fee])
         max_total_fee = max_sell_fee + max_buy_fee
 
         # compute the total liquid assuming the trader is balancing to the maximal mean possible
-        usable_liquid = self.liquid + np.sum(owned_value) - np.sum(max_tax) - max_total_fee
+        self.usable_liquid = self.liquid + np.sum(owned_value) - np.sum(max_tax) - max_total_fee
 
         # recompute the units needed for balancing to the maximal weighted mean possible
-        value_to_max = usable_liquid * p
-        units_of_maxed = np.array(value_to_max / market_value, dtype=np.int)
+        value_to_max = self.usable_liquid * p - margins
+        units_of_maxed = np.array(np.round(value_to_max / market_value), dtype=np.int)
         units_to_max = units_of_maxed - owned_units
         units_to_max_sign = np.sign(units_to_max)       # sign
         units_to_max = np.abs(units_to_max)             # value
@@ -252,14 +251,18 @@ class Trader:
 
         if self.verbose:
             print('[+] Liquid: {:14.2f} '.format(np.round(self.liquid, 2)))
-            verbose_str = ['[+] NEXT ']
+            execute_str = ['[+] NEXT ']
             for ticker in tickers:
-                verbose_str.append('| ')
-                verbose_str.append(ticker)
-                verbose_str.append(': {:10.2f} ')
-            verbose_str.append('|')
-
-            print(''.join(verbose_str).format(*values_for_execution[execution_order]))
+                execute_str.append('| ')
+                execute_str.append(ticker)
+                execute_str.append(': {:10.2f} ')
+            execute_str.append('|')
+            print('|-------------------------------------------------------------------------------------------------|')
+            print(''.join(['[+] CURR '] + execute_str[1:]).format(*owned_value[execution_order]))
+            print(''.join(['[+] GOAL '] + execute_str[1:]).format(*value_to_max[execution_order]))
+            print(''.join(execute_str).format(*values_for_execution[execution_order]))
+            print(''.join(['[+] UNIT '] + execute_str[1:]).format(*market_value[execution_order]))
+            print('|-------------------------------------------------------------------------------------------------|')
 
         # execute balance
         for i, ticker in enumerate(tickers):
@@ -296,8 +299,9 @@ class Trader:
         owned_value = owned_units * market_value
 
         # compute the half single unit margin error
-        allowed_margin = np.sum(market_value / 2)
-        goal_values = np.sum(owned_value) * p
+        margins = market_value / 2
+        allowed_margin = np.sum(margins)
+        goal_values = self.usable_liquid * p - margins
         total_error = np.sum(np.abs(owned_value - goal_values))
         if self.verbose:
             print('| Current Error: {:10.2f} | Allowed Error: {:10.2f}'
@@ -308,6 +312,7 @@ class Trader:
             return True
         else:
             # the portfolio is not balanced
+            raise(ValueError)
             return False
 
 

@@ -9,6 +9,7 @@ periods = [4]
 the_traders = []
 
 tickers = ['AAPL', 'GOOG', 'SPY', 'TSLA', 'ORCL']
+p = [0.1, 0.2, 0.3, 0.4]
 market = Market(tickers, start_date=(2019, 1, 1), end_date=(2022, 1, 1))
 broker = Broker(buy_fee=0.08, min_buy_fee=2, sell_fee=0.08, min_sell_fee=2, tax=25, my_market=market)
 first_date = cp.copy(market.current_date)
@@ -30,7 +31,7 @@ for i, period in enumerate(periods):
     trader.buy('ORCL', 40)
 
     trader_tickers = list(trader.portfolio.keys())
-    trader.balance(trader_tickers, p=[0.1, 0.2, 0.3, 0.4])
+    trader.balance(trader_tickers, p=p)
 
     done = False
     steps = 0
@@ -41,7 +42,7 @@ for i, period in enumerate(periods):
         trader.step(previous_date)
         if steps % trader.balance_period == 0:
 
-            trader.balance(trader_tickers, p=[0.1, 0.2, 0.3, 0.4])
+            trader.balance(trader_tickers, p=p)
     the_traders.append(trader)
 
 compare_traders(the_traders, periods, 'bp', interval=np.int(len(trader.date_history) / 10))
