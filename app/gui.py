@@ -19,6 +19,12 @@ TEXT_BOX_SIZE = 10
 TEXT_HEAD_SIZE = 14
 HEADING_SIZE = 16
 
+BLUE_BUTTON_COLOR = '#FFFFFF on #2196f2'
+RED_BUTTON_COLOR = '#FFFFFF on #fa5f55'
+GREEN_BUTTON_COLOR ='#FFFFFF on #00c851'
+LIGHT_GRAY_BUTTON_COLOR = f'#212021 on #e0e0e0'
+DARK_GRAY_BUTTON_COLOR = '#e0e0e0 on #212021'
+
 
 def make_gui(theme):
     sg.theme(theme)
@@ -63,8 +69,8 @@ def make_gui(theme):
     input_layout += market_layout + broker_layout + trader_layout
     input_layout += [[sg.Text('Progress Bar', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
         [sg.ProgressBar(10000, orientation='h', size=(80, 20), bar_color=('green', 'white'), key='-PROGRESS BAR-')]]
-    input_layout += [[sg.Button('GO', size=(35, 2), button_color='green'),
-                      sg.Button('STOP', size=(35, 2), button_color='red'),
+    input_layout += [[sg.Button('GO', size=(35, 2), button_color=GREEN_BUTTON_COLOR),
+                      sg.Button('STOP', size=(35, 2), button_color=RED_BUTTON_COLOR),
                       sg.Button('HELP', size=(11, 2)),
                       sg.Button('EXIT', size=(12, 2))]]
 
