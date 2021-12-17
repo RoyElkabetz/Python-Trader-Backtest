@@ -1,7 +1,31 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from traders import Trader
+from markets import Market
 import matplotlib.dates as mdates
+
+
+def plot_market(market: Market, prm='Open', tickers=None, normalize=True):
+    data = market.stocks_data
+    if tickers is None:
+        tickers = list(data.keys())
+
+    fig = plt.figure(dpi=200)
+    ax = fig.add_subplot()
+    ax.set_title('Market')
+    for ticker in tickers:
+        if normalize:
+            ax.plot(data[ticker][prm] / data[ticker][prm].min(), label=ticker)
+        else:
+            ax.plot(data[ticker][prm], label=ticker)
+    ax.legend()
+    ax.set_xlabel('Date')
+    if normalize:
+        ax.set_ylabel('Normalized Value')
+    else:
+        ax.set_ylabel('USD')
+    ax.grid()
+    plt.show()
 
 
 def plot_trader(trader: Trader, interval=20):
