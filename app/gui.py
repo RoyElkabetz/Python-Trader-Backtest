@@ -68,6 +68,9 @@ def make_gui(theme):
                      [sg.Text('Periods:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input('2, 4, 8, 16, 32', size=APP_WIDTH-TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-PERIODS-')],
+                     [sg.Text('Sell Strategy:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.DropDown(list(['FIFO', 'LIFO', 'TAX_OPT']), size=(15, 10), enable_events=False,
+                                  font=(TEXT_FONT, TEXT_SIZE), key='-LIST-')],
                      [sg.Text('Verbose:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Checkbox('', default=False, key='-VERBOSE-')],
                      [sg.Text('-'*LIEN_WIDTH, justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE))]]

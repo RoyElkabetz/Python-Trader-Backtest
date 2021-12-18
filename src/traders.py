@@ -348,11 +348,3 @@ class Trader:
                     stocks_price[ticker].append(stock['Open'].values[0])
                 order = np.argsort(np.array(stocks_price[ticker]))
                 self.portfolio[ticker] = list(np.array(self.portfolio[ticker])[order])
-
-
-
-
-
-
-
-
