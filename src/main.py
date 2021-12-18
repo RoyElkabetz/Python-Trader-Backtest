@@ -7,8 +7,8 @@ from utils import plot_trader, compare_traders, plot_market
 import copy as cp
 
 
-def simulate(liquid, tickers, periods, ratios, sell_strategy, start_date, end_date, buy_fee,
-             min_buy_fee, sell_fee, min_sell_fee, tax, verbose, plots_normalize):
+def simulator(liquid, tickers, periods, ratios, sell_strategy, start_date, end_date, buy_fee,
+              min_buy_fee, sell_fee, min_sell_fee, tax, verbose, plots_normalize):
 
     traders_list = []
     market = Market(tickers, start_date=start_date, end_date=end_date)
@@ -78,9 +78,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # run the simulation
-    simulate(args.liquid, args.tickers, args.periods, args.ratios, args.sell_strategy, args.start_date, args.end_date,
-             args.buy_fee, args.min_buy_fee, args.sell_fee, args.min_sell_fee, args.tax, args.verbose,
-             args.plots_normalize)
+    simulator(args.liquid, args.tickers, args.periods, args.ratios, args.sell_strategy, args.start_date, args.end_date,
+              args.buy_fee, args.min_buy_fee, args.sell_fee, args.min_sell_fee, args.tax, args.verbose,
+              args.plots_normalize)
 
 
 

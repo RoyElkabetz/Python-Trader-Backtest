@@ -1,24 +1,17 @@
-#
-#     _________  _________       ____       _________  _________
-#    /         |/         |     /    \     /         |/         |
-#    $$$$$$$$$/ $$$$$$$$$  |    $$$$  \    $$$$$$$$$/ $$$$$$$$$/
-#    $$ | /    |$$      $$/    $$  $$  \   $$      |  $$      |
-#    $$ |_$$$$ |$$$$$$$$$ \   $$$$$$$$  \  $$$$$$$/   $$$$$$$/
-#    $$     $$ |$$ |   $$  \ $$/     $$  \ $$ |       $$ |
-#    $$$$$$$$$/ $$/      $$/$$/        $$/ $$/        $$/
-#     _________  __         __     __      ____      _________   _________  __________  __________
-#    /         |/  |       /  |   /  |    /    \    /         | /         |/          |/          |
-#    $$$$$$$$$/ $$ |       $$ |___$$ /    $$$$  \   $$$$$$$$$  |$$$$$$$$$/ $$$$$$$$$$/ $$$$$$$$$$/      ____
-#    $$ /   |   $$ |       $$   $$  /    $$  $$  \  $$ /    $$/ $$ /   |       $$ |          $$        /    \
-#    $$$$$$/___ $$ |______ $$$$$    \   $$$$$$$$  \ $$$$$$$$$ \ $$$$$$/___     $$ |        $$_____     $$$$  |
-#    $$ /      |$$        |$$ | $$   | $$/     $$  \$$ /    $$ |$$ /      |    $$ |      $$       |   $$  $$/
-#    $$$$$$$$$/ $$$$$$$$$/ $$/    $$/ $$/        $$/$$$$$$$$$ / $$$$$$$$$/     $$/     $$$$$$$$$$/     $$$$/
+import sys
+sys.path.insert(1, '/Users/royelkabetz/Git/Stock_Trade_Simulator/src')
 
-
-import argparse
 import numpy as np
+import copy as cp
 import PySimpleGUI as sg
+from src.markets import Market
+from src.brokers import Broker
+from src.traders import Trader
+from src.utils import plot_trader, compare_traders, plot_market
 
+
+
+# default arguments
 APP_WIDTH = 90
 LIEN_WIDTH = 150
 TEXT_FONT = "Helvetica"
@@ -51,18 +44,34 @@ def make_gui(theme):
     ################################################    Broker layout    ###############################################
     broker_layout = [[sg.Text('Broker', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
                      [sg.Text('Buy fee:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
-                      sg.Input('0.08', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
+                      sg.Input(0.08, size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
                                key='-BUY-'),
+                      sg.Text('%', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Text('Sell fee:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
-                      sg.Input('0.08', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
+                      sg.Input(0.08, size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
                                key='-SELL-'),
-                      sg.Text('Tax:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
-                      sg.Input('25', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
-                               key='-TAX-')],
-                     [sg.HSeparator(color=SEPARATOR_COLOR)],]
+                      sg.Text('%', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Text('Tax:', size=4, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Input(25, size=TEXT_BOX_SIZE-2, justification='left', font=(TEXT_FONT, TEXT_SIZE),
+                               key='-TAX-'),
+                      sg.Text('%', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),],
+                     [sg.Text('Min buy fee:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Input(2, size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
+                               key='-MIN-BUY-'),
+                      sg.Text('$', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Text('Min sell fee:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Input(2, size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
+                               key='-MIN-SELL-'),
+                      sg.Text('$', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      ],
+                     [sg.HSeparator(color=SEPARATOR_COLOR)], ]
 
     ################################################    Trader layout    ###############################################
     trader_layout = [[sg.Text('Trader', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
+                     [sg.Text('Liquid:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Input(100000, size=2*TEXT_BOX_SIZE,
+                               justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-LIQUID-'),
+                      sg.Text('$', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE))],
                      [sg.Text('Tickers:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input('AAPL, GOOG, TSLA, ORCL', size=APP_WIDTH-TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-TICKERS-')],
@@ -140,28 +149,6 @@ def run_gui():
             #sg.popup('This should be ',
             #         'a help pop up !')
 
-            dates = values['-DATES-'].split('-')
-            start_date = np.array(dates[0].strip()[1:-1].split(','), dtype=np.int)
-            end_date = np.array(dates[1].strip()[1:-1].split(','), dtype=np.int)
-            buy_fee = np.float(values['-BUY-'])
-            sell_fee = np.float(values['-SELL-'])
-            tax = np.float(values['-TAX-'])
-            tickers = [ticker.strip() for ticker in values['-TICKERS-'].split(',')]
-            ratios = [np.float(ratio.strip()) for ratio in values['-RATIOS-'].split(',')]
-            periods = [np.int(period.strip()) for period in values['-PERIODS-'].split(',')]
-            sell_strategy = values['-SELL STRATEGY-']
-            verbose = values['-VERBOSE-']
-            print(start_date)
-            print(end_date)
-            print(buy_fee)
-            print(sell_fee)
-            print(tax)
-            print(tickers)
-            print(ratios)
-            print(periods)
-            print(sell_strategy)
-            print(verbose)
-
 
         elif event == '-RUN-':
             # Running the simulation
@@ -176,8 +163,11 @@ def run_gui():
             start_date = tuple(np.array(dates[0].strip()[1:-1].split(','), dtype=np.int))
             end_date = tuple(np.array(dates[1].strip()[1:-1].split(','), dtype=np.int))
             buy_fee = np.float(values['-BUY-'])
+            min_buy_fee = np.float(values['-MIN-BUY-'])
             sell_fee = np.float(values['-SELL-'])
+            min_sell_fee = np.float(values['-MIN-SELL-'])
             tax = np.float(values['-TAX-'])
+            liquid = np.float(values['-LIQUID-'])
             tickers = [ticker.strip() for ticker in values['-TICKERS-'].split(',')]
             ratios = [np.float(ratio.strip()) for ratio in values['-RATIOS-'].split(',')]
             periods = [np.int(period.strip()) for period in values['-PERIODS-'].split(',')]
@@ -186,8 +176,56 @@ def run_gui():
 
             # verify input values are in bounds
 
+            ############################################################################################################
+            ####################################         RUN SIMULATOR         #########################################
+            ############################################################################################################
             # arrange input variables to parser arguments
 
+            traders_list = []
+            market = Market(tickers, start_date=start_date, end_date=end_date)
+            broker = Broker(buy_fee=buy_fee, min_buy_fee=min_buy_fee, sell_fee=sell_fee,
+                            min_sell_fee=min_sell_fee, tax=tax, my_market=market)
+            first_date = cp.copy(market.current_date)
+
+            for i, period in enumerate(periods):
+                print(f'period: {period}')
+
+                # init market
+                market.current_idx = 0
+                market.current_date = first_date
+
+                # init new trader
+                trader = Trader(liquid=liquid, balance_period=period, broker=broker, market=market,
+                                verbose=verbose, sell_strategy=sell_strategy)
+
+                # buy some stocks
+                for ticker in tickers:
+                    trader.buy(ticker, 1)
+
+                done = False
+                steps = 0
+
+                trader.balance(tickers, p=ratios)
+                while not done:
+                    steps += 1
+                    if steps % 100 == 0:
+                        print('| Step: {:6.0f} / {:6.0f} | Balance period: {:4.0f} |'
+                              .format(steps, market.steps, trader.balance_period))
+                    # step market forward in time
+                    done, previous_date = market.step()
+
+                    # step trader forward in time
+                    trader.step(previous_date)
+
+                    # balance trader portfolio
+                    if steps % trader.balance_period == 0:
+                        trader.balance(tickers, p=ratios)
+
+                traders_list.append(trader)
+
+            # # plot results
+            # plot_market(market, normalize=plots_normalize)
+            # compare_traders(traders_list, periods, 'bp', interval=np.int(len(trader.date_history) / 10))
 
 
 
