@@ -5,12 +5,16 @@ from brokers import Broker
 
 class Trader:
     """ A Trader class for Backtesting simulation of a periodic balancing strategy for stocks trading"""
-    def __init__(self, liquid, balance_period, broker: Broker, market: Market, verbose=False):
+    def __init__(self, liquid, balance_period, broker: Broker, market: Market, verbose=False, sell_strategy='FIFO'):
         self.liquid = liquid
         self.balance_period = balance_period
         self.broker = broker
         self.market = market
         self.verbose = verbose
+
+        assert sell_strategy in ['FIFO', 'LIFO', 'MIN_TAX'], \
+            'sell_strategy should be one of the following: "FIFO", "LIFO", "TAX_OPT".'
+        self.sell_strategy = sell_strategy
 
         # Trader's portfolio
         self.portfolio = {}
@@ -312,8 +316,42 @@ class Trader:
             return True
         else:
             # the portfolio is not balanced
-            raise(ValueError)
             return False
+
+    def sort_tickers(self):
+        """
+        Sort stocks in portfolio for each ticker in one of the following orders: FIFO, LIFO, TAX_OPT,
+        where TAX_OPT will sort the stocks according to their Opening prices, such that when sold would lead to
+        a minimal tax payment.
+        :return: None
+        """
+        # FIFO ordering of portfolio stocks
+        if self.sell_strategy == 'FIFO':
+            return
+        # LIFO ordering of portfolio stocks
+        elif self.sell_strategy == 'LIFO':
+            stocks_dates = {}
+            for ticker in self.portfolio:
+                stocks_dates[ticker] = []
+                stocks = self.portfolio[ticker]
+                for stock in stocks:
+                    stocks_dates[ticker].append(stock.index)
+                order = np.argsort(np.array(stocks_dates[ticker]))
+                self.portfolio[ticker] = list(np.array(self.portfolio[ticker])[order[::-1]])
+        # TAX_OPT ordering of portfolio stocks
+        elif self.sell_strategy == 'TAX_OPT':
+            stocks_price = {}
+            for ticker in self.portfolio:
+                stocks_price[ticker] = []
+                stocks = self.portfolio[ticker]
+                for stock in stocks:
+                    stocks_price[ticker].append(stock['Open'].values[0])
+                order = np.argsort(np.array(stocks_price[ticker]))
+                self.portfolio[ticker] = list(np.array(self.portfolio[ticker])[order])
+
+
+
+
 
 
 
