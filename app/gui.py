@@ -1,14 +1,14 @@
 import sys
-sys.path.insert(1, '/Users/royelkabetz/Git/Stock_Trade_Simulator/src')
-
 import numpy as np
 import copy as cp
+from datetime import date
 import PySimpleGUI as sg
+sys.path.insert(1, '/Users/royelkabetz/Git/Stock_Trade_Simulator/src')
+
 from src.markets import Market
 from src.brokers import Broker
 from src.traders import Trader
 from src.utils import plot_trader, compare_traders, plot_market
-
 
 
 # default arguments
@@ -19,7 +19,9 @@ TEXT_SIZE = 12
 TEXT_BOX_SIZE = 10
 TEXT_HEAD_SIZE = 14
 HEADING_SIZE = 16
+PROGRESS_BAR_UNITS = 100000
 
+# colors
 BLUE_BUTTON_COLOR = '#FFFFFF on #2196f2'
 RED_BUTTON_COLOR = '#FFFFFF on #fa5f55'
 GREEN_BUTTON_COLOR = '#FFFFFF on #00c851'
@@ -76,7 +78,7 @@ def make_gui(theme):
                       sg.Input('AAPL, GOOG, TSLA, ORCL', size=APP_WIDTH-TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-TICKERS-')],
                      [sg.Text('Ratios:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
-                      sg.Input('25, 25, 25, 25', size=APP_WIDTH-TEXT_BOX_SIZE,
+                      sg.Input('0.25, 0.25, 0.25, 0.25', size=APP_WIDTH-TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-RATIOS-')],
                      [sg.Text('Periods:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input('2, 4, 8, 16, 32', size=APP_WIDTH-TEXT_BOX_SIZE,
@@ -93,7 +95,7 @@ def make_gui(theme):
     input_layout += market_layout + broker_layout + trader_layout
     input_layout += [[sg.Text('Progress Bar', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE),
                               size=APP_WIDTH)],
-                     [sg.ProgressBar(10000, orientation='h', size=(80, 20), bar_color=('green', 'white'),
+                     [sg.ProgressBar(PROGRESS_BAR_UNITS, orientation='h', size=(80, 20), bar_color=('green', 'white'),
                                      key='-PROGRESS BAR-')]]
     input_layout += [[sg.Button('RUN', size=(77, 2), button_color=GREEN_BUTTON_COLOR, k='-RUN-'),
                       sg.Button('HELP', size=(11, 2), k='-HELP-'),
@@ -151,14 +153,9 @@ def run_gui():
 
 
         elif event == '-RUN-':
-            # Running the simulation
-            print("======  Starting BackTesting Simulation  ======")
             progress_bar = window['-PROGRESS BAR-']
 
-            # extract execution arguments from variables
-            variables = ['-DATES-', '-BUY-', '-SELL-', '-TAX-', '-TICKERS-', '-RATIOS-', '-PERIODS-', '-SELL STRATEGY-',
-                         '-VERBOSE-', '-PLOTS-', '-TAB GROUP-']
-
+            # Extract arguments from variables
             dates = values['-DATES-'].split('-')
             start_date = tuple(np.array(dates[0].strip()[1:-1].split(','), dtype=np.int))
             end_date = tuple(np.array(dates[1].strip()[1:-1].split(','), dtype=np.int))
@@ -174,68 +171,85 @@ def run_gui():
             sell_strategy = values['-SELL STRATEGY-']
             verbose = values['-VERBOSE-']
 
-            # verify input values are in bounds
+            # Verify input values are in bounds
+            if not np.sum(ratios) == 1:
+                sg.popup('Ratios should', 'sum up to 1')
+                continue
+            if not 0 <= tax <= 100:
+                sg.popup('Tax should be', 'between 0 and 100')
+                continue
+            if not 0 <= buy_fee <= 100:
+                sg.popup('Buy fee should be', 'between 0 and 100')
+                continue
+            if not 0 <= sell_fee <= 100:
+                sg.popup('Sell fee should be', 'between 0 and 100')
+                continue
+            if not date(*start_date) < date(*end_date):
+                sg.popup('Start date should be', 'smaller than end date')
+                continue
+            if not min_buy_fee >= 0 and min_sell_fee >= 0:
+                sg.popup('Minimum sell and buy fees', 'should be positive')
+                continue
 
-            ############################################################################################################
-            ####################################         RUN SIMULATOR         #########################################
-            ############################################################################################################
-            # arrange input variables to parser arguments
-
+            # Running the simulation
+            print("[LOG] Starting BackTesting Simulation")
             traders_list = []
             market = Market(tickers, start_date=start_date, end_date=end_date)
             broker = Broker(buy_fee=buy_fee, min_buy_fee=min_buy_fee, sell_fee=sell_fee,
                             min_sell_fee=min_sell_fee, tax=tax, my_market=market)
             first_date = cp.copy(market.current_date)
 
+            # progress bar units
+            steps_to_finish = market.steps * len(periods)
+            cntr_unit = PROGRESS_BAR_UNITS // steps_to_finish
+            cntr = 0
+
+            # Iterating through periods
             for i, period in enumerate(periods):
                 print(f'period: {period}')
 
-                # init market
+                # Init market
                 market.current_idx = 0
                 market.current_date = first_date
 
-                # init new trader
+                # Init new trader
                 trader = Trader(liquid=liquid, balance_period=period, broker=broker, market=market,
                                 verbose=verbose, sell_strategy=sell_strategy)
 
-                # buy some stocks
+                # Init portfolio by buying a single stock from each ticker
                 for ticker in tickers:
                     trader.buy(ticker, 1)
+                trader.balance(tickers, p=ratios)
 
+                # Iterating through trading days
                 done = False
                 steps = 0
-
-                trader.balance(tickers, p=ratios)
                 while not done:
+                    progress_bar.UpdateBar(cntr)
+                    cntr += cntr_unit
                     steps += 1
                     if steps % 100 == 0:
                         print('| Step: {:6.0f} / {:6.0f} | Balance period: {:4.0f} |'
                               .format(steps, market.steps, trader.balance_period))
-                    # step market forward in time
+                    # Step market forward in time
                     done, previous_date = market.step()
 
-                    # step trader forward in time
+                    # Step trader forward in time
                     trader.step(previous_date)
 
-                    # balance trader portfolio
+                    # Balance trader portfolio in period
                     if steps % trader.balance_period == 0:
                         trader.balance(tickers, p=ratios)
 
                 traders_list.append(trader)
 
+            print("[LOG] The simulation is complete")
+        elif event == "-PLOTS-":
+            pass
             # # plot results
             # plot_market(market, normalize=plots_normalize)
             # compare_traders(traders_list, periods, 'bp', interval=np.int(len(trader.date_history) / 10))
 
-
-
-
-            for i in range(1, 10000, int(10000 / 1000)):
-                print("[LOG] Updating progress bar by 1 step (" + str(i) + ")")
-                progress_bar.UpdateBar(i + 1)
-            print("[LOG] Progress bar complete!")
-        elif event == "-PLOTS-":
-            pass
             # graph = window['-GRAPH-']  # type: sg.Graph
             # graph.draw_circle(values['-GRAPH-'], fill_color='yellow', radius=20)
             # print("[LOG] Circle drawn at: " + str(values['-GRAPH-']))
