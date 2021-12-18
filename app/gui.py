@@ -33,7 +33,7 @@ DARK_GRAY_BUTTON_COLOR = '#e0e0e0 on #212021'
 def make_gui(theme):
     sg.theme(theme)
 
-    ################################################    Market layout    ###############################################
+    # Market layout
     market_layout = [[sg.Text('Market', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
                      [sg.Text('Dates:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input('(2019, 1, 1) - (2021, 2, 15)',
@@ -43,7 +43,7 @@ def make_gui(theme):
                                font=(TEXT_FONT, TEXT_SIZE))],
                      [sg.HSeparator(color=SEPARATOR_COLOR)],]
 
-    ################################################    Broker layout    ###############################################
+    # Broker layout
     broker_layout = [[sg.Text('Broker', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
                      [sg.Text('Buy fee:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input(0.08, size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
@@ -68,7 +68,7 @@ def make_gui(theme):
                       ],
                      [sg.HSeparator(color=SEPARATOR_COLOR)], ]
 
-    ################################################    Trader layout    ###############################################
+    # Trader layout
     trader_layout = [[sg.Text('Trader', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
                      [sg.Text('Liquid:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input(100000, size=2*TEXT_BOX_SIZE,
@@ -90,7 +90,7 @@ def make_gui(theme):
                       sg.Checkbox('', default=False, key='-VERBOSE-')],
                      [sg.HSeparator(color=SEPARATOR_COLOR)],]
 
-    ################################################    Input layout    ################################################
+    # Input layout
     input_layout = [[sg.HSeparator(color=SEPARATOR_COLOR)]]
     input_layout += market_layout + broker_layout + trader_layout
     input_layout += [[sg.Text('Progress Bar', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE),
@@ -101,15 +101,15 @@ def make_gui(theme):
                       sg.Button('HELP', size=(11, 2), k='-HELP-'),
                       sg.Button('EXIT', size=(12, 2), k='-EXIT-')]]
 
-    ################################################    Logger layout    ###############################################
+    # Logger layout
     logging_layout = [[sg.Text('Logger', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
                       [sg.Output(size=(140, 50), font='Courier 8')]]
 
-    ################################################    Plots layout    ################################################
+    # Plots layout
     graphing_layout = [[sg.Text('Plots', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
                        [sg.Canvas(size=(40, 10), key='-PLOTS-')]]
 
-    ################################################    Theming layout    ##############################################
+    # Theming layout
     theme_layout = [[sg.Text("See how elements look under different themes by choosing a different theme here!")],
                     [sg.Listbox(values=sg.theme_list(),
                                 size=(20, 12),
@@ -117,7 +117,7 @@ def make_gui(theme):
                                 enable_events=True)],
                     [sg.Button("Set Theme")]]
 
-    ################################################    Main layout    ###############################################
+    # Main layout
     layout = [[sg.Text('BackTesting Trading Simulation Application', size=(81, 1), justification='center',
                        font=(TEXT_FONT, HEADING_SIZE), k='-TEXT HEADING-', enable_events=True)]]
 
@@ -147,10 +147,8 @@ def run_gui():
             break
         elif event == '-HELP-':
             # Help Popup window
-            print("[LOG] Clicked HELP!")
-            #sg.popup('This should be ',
-            #         'a help pop up !')
-
+            sg.popup('This Gui is a Backtesting Trading simulator. It is used for simulating '
+                     'a trading balancing strategy on a given set of stocks (Tickers).')
 
         elif event == '-RUN-':
             progress_bar = window['-PROGRESS BAR-']
@@ -173,22 +171,22 @@ def run_gui():
 
             # Verify input values are in bounds
             if not np.sum(ratios) == 1:
-                sg.popup('Ratios should', 'sum up to 1')
+                sg.popup('Ratios should sum up to 1')
                 continue
             if not 0 <= tax <= 100:
-                sg.popup('Tax should be', 'between 0 and 100')
+                sg.popup('Tax should be between 0 and 100')
                 continue
             if not 0 <= buy_fee <= 100:
-                sg.popup('Buy fee should be', 'between 0 and 100')
+                sg.popup('Buy fee should be between 0 and 100')
                 continue
             if not 0 <= sell_fee <= 100:
-                sg.popup('Sell fee should be', 'between 0 and 100')
+                sg.popup('Sell fee should be between 0 and 100')
                 continue
             if not date(*start_date) < date(*end_date):
-                sg.popup('Start date should be', 'smaller than end date')
+                sg.popup('Start date should be smaller than end date')
                 continue
             if not min_buy_fee >= 0 and min_sell_fee >= 0:
-                sg.popup('Minimum sell and buy fees', 'should be positive')
+                sg.popup('Minimum sell and buy fees should be positive')
                 continue
 
             # Running the simulation
