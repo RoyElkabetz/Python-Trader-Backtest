@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 import copy as cp
+import inspect
 from datetime import date
 import PySimpleGUI as sg
 sys.path.insert(1, '/Users/royelkabetz/Git/Stock_Trade_Simulator/src')
@@ -8,8 +9,7 @@ sys.path.insert(1, '/Users/royelkabetz/Git/Stock_Trade_Simulator/src')
 from src.markets import Market
 from src.brokers import Broker
 from src.traders import Trader
-from src.utils import plot_trader, compare_traders, plot_market
-
+from utils import market_plot, delete_figure_agg, draw_figure, compare_traders
 
 # default arguments
 APP_WIDTH = 90
@@ -21,6 +21,7 @@ UNITS_BOX_SIZE = 5
 TEXT_HEAD_SIZE = 14
 HEADING_SIZE = 16
 PROGRESS_BAR_UNITS = 100000
+figure_w, figure_h = 100, 100
 
 # colors
 BLUE_BUTTON_COLOR = '#FFFFFF on #2196f2'
@@ -29,6 +30,8 @@ GREEN_BUTTON_COLOR = '#FFFFFF on #00c851'
 SEPARATOR_COLOR = '#FFFFFF'
 LIGHT_GRAY_BUTTON_COLOR = f'#212021 on #e0e0e0'
 DARK_GRAY_BUTTON_COLOR = '#e0e0e0 on #212021'
+
+fig_dict = {'market_plot': market_plot, 'compare_traders': compare_traders}
 
 
 def make_gui(theme):
@@ -114,8 +117,7 @@ def make_gui(theme):
                               size=APP_WIDTH)],
                      [sg.ProgressBar(PROGRESS_BAR_UNITS, orientation='h', size=(80, 20), bar_color=('green', 'white'),
                                      key='-PROGRESS BAR-')]]
-    input_layout += [[sg.Button('RUN', size=(60, 2), button_color=GREEN_BUTTON_COLOR, k='-RUN-'),
-                      sg.Button('PLOTS', size=(11, 2), button_color=BLUE_BUTTON_COLOR, k='-PLOTS-'),
+    input_layout += [[sg.Button('RUN', size=(77, 2), button_color=GREEN_BUTTON_COLOR, k='-RUN-'),
                       sg.Button('HELP', size=(11, 2), k='-HELP-'),
                       sg.Button('EXIT', size=(12, 2), k='-EXIT-')]]
 
@@ -124,8 +126,13 @@ def make_gui(theme):
                       [sg.Output(size=(140, 50), font='Courier 8')]]
 
     # Plots layout
-    graphing_layout = [[sg.Text('Plots', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
-                       [sg.Canvas(size=(40, 10), key='-CANVAS-')]]
+    listbox_values = list(fig_dict)
+    plotting_layout = [[sg.Text('Plots', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
+                       [sg.Canvas(size=(figure_w, figure_h), key='-CANVAS-')],
+                       [sg.Listbox(values=listbox_values, change_submits=True, size=(28, len(listbox_values)),
+                                   key='-LISTBOX-')],
+                       [sg.Button('PLOTS', size=(11, 2), button_color=BLUE_BUTTON_COLOR, k='-PLOT-')],
+                       ]
 
     # Theming layout
     theme_layout = [[sg.Text("See how elements look under different themes by choosing a different theme here!")],
@@ -140,7 +147,7 @@ def make_gui(theme):
                        font=(TEXT_FONT, HEADING_SIZE), k='-TEXT HEADING-', enable_events=True)]]
 
     layout += [[sg.TabGroup([[sg.Tab('Inputs', input_layout),
-                              sg.Tab('Plots', graphing_layout),
+                              sg.Tab('Plots', plotting_layout),
                               sg.Tab('Theming', theme_layout),
                               sg.Tab('Output', logging_layout)]], key='-TAB GROUP-')]]
 
@@ -149,6 +156,9 @@ def make_gui(theme):
 
 def run_gui():
     window = make_gui(sg.theme())
+    canvas_elem = window['-CANVAS-']
+    progress_bar = window['-PROGRESS BAR-']
+    figure_agg = None
 
     # This is an Event Loop
     while True:
@@ -167,9 +177,7 @@ def run_gui():
             # Help Popup window
             sg.popup('This Gui is a Backtesting Trading simulator. It is used for simulating '
                      'a trading balancing strategy on a given set of stocks (Tickers).')
-
         elif event == '-RUN-':
-            progress_bar = window['-PROGRESS BAR-']
 
             # Extract arguments from variables
             dates = values['-DATES-'].split('-')
@@ -287,15 +295,22 @@ def run_gui():
                 traders_list.append(trader)
 
             print("[LOG] The simulation is complete")
-        elif event == "-PLOTS-":
+        elif event == "-PLOT-":
 
-            # plot results
-            # plot_market(market, normalize=plots_normalize)
-            compare_traders(traders_list, periods, 'bp', interval=np.int(len(trader.date_history) / 10))
+            if figure_agg:
+                # ** IMPORTANT ** Clean up previous drawing before drawing again
+                delete_figure_agg(figure_agg)
+            # get first listbox item chosen (returned as a list)
+            choice = values['-LISTBOX-'][0]
 
-            # graph = window['-GRAPH-']  # type: sg.Graph
-            # graph.draw_circle(values['-GRAPH-'], fill_color='yellow', radius=20)
-            # print("[LOG] Circle drawn at: " + str(values['-GRAPH-']))
+            # call function to get the figure
+            if choice == 'market_plot':
+                fig = market_plot(market, normalize=True)
+            if choice == 'compare_traders':
+                fig = compare_traders(traders_list, periods, 'period')
+
+            figure_agg = draw_figure(window['-CANVAS-'].TKCanvas, fig)  # draw the figure
+
         elif event == "Set Theme":
             print("[LOG] Clicked Set Theme!")
             theme_chosen = values['-THEME LISTBOX-'][0]
