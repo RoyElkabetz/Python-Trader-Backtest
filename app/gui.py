@@ -80,7 +80,7 @@ def make_gui(theme):
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-DEPOSIT-'),
                       sg.Text('$', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Text('Deposit period:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
-                      sg.Input(None, size=TEXT_BOX_SIZE,
+                      sg.Input(size=TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-DEPOSIT-PERIOD-'),
                       sg.Text('(days)', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),],
                      [sg.Text('Withdraw:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
@@ -88,7 +88,7 @@ def make_gui(theme):
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-WITHDRAW-'),
                       sg.Text('$', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Text('Withdraw period:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
-                      sg.Input(None, size=TEXT_BOX_SIZE,
+                      sg.Input(size=TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-WITHDRAW-PERIOD-'),
                       sg.Text('(days)', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)), ],
                      [sg.Text('Tickers:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
@@ -114,7 +114,8 @@ def make_gui(theme):
                               size=APP_WIDTH)],
                      [sg.ProgressBar(PROGRESS_BAR_UNITS, orientation='h', size=(80, 20), bar_color=('green', 'white'),
                                      key='-PROGRESS BAR-')]]
-    input_layout += [[sg.Button('RUN', size=(77, 2), button_color=GREEN_BUTTON_COLOR, k='-RUN-'),
+    input_layout += [[sg.Button('RUN', size=(60, 2), button_color=GREEN_BUTTON_COLOR, k='-RUN-'),
+                      sg.Button('PLOTS', size=(11, 2), button_color=BLUE_BUTTON_COLOR, k='-PLOTS-'),
                       sg.Button('HELP', size=(11, 2), k='-HELP-'),
                       sg.Button('EXIT', size=(12, 2), k='-EXIT-')]]
 
@@ -124,7 +125,7 @@ def make_gui(theme):
 
     # Plots layout
     graphing_layout = [[sg.Text('Plots', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
-                       [sg.Canvas(size=(40, 10), key='-PLOTS-')]]
+                       [sg.Canvas(size=(40, 10), key='-CANVAS-')]]
 
     # Theming layout
     theme_layout = [[sg.Text("See how elements look under different themes by choosing a different theme here!")],
@@ -181,9 +182,9 @@ def run_gui():
             tax = np.float(values['-TAX-'])
             liquid = np.float(values['-LIQUID-'])
             deposit_amount = np.float(values['-DEPOSIT-'])
-            deposit_period = np.int(values['-DEPOSIT-PERIOD-']) if values['-DEPOSIT-PERIOD-'] is not None else None
+            deposit_period = None if values['-DEPOSIT-PERIOD-'] == '' else np.int(values['-DEPOSIT-PERIOD-'])
             withdraw_amount = np.float(values['-DEPOSIT-'])
-            withdraw_period = np.int(values['-WITHDRAW-PERIOD-']) if values['-WITHDRAW-PERIOD-'] is not None else None
+            withdraw_period = None if values['-WITHDRAW-PERIOD-'] == '' else np.int(values['-WITHDRAW-PERIOD-'])
             tickers = [ticker.strip() for ticker in values['-TICKERS-'].split(',')]
             ratios = [np.float(ratio.strip()) for ratio in values['-RATIOS-'].split(',')]
             periods = [np.int(period.strip()) for period in values['-PERIODS-'].split(',')]
@@ -209,14 +210,18 @@ def run_gui():
             if not min_buy_fee >= 0 and min_sell_fee >= 0:
                 sg.popup('Minimum sell and buy fees should be positive')
                 continue
-            if not deposit_amount >= 0:
+            if deposit_amount < 0:
                 sg.popup('Deposit amount should be positive float.')
-            if not withdraw_amount >= 0:
+                continue
+            if withdraw_amount < 0:
                 sg.popup('Withdraw amount should be positive float.')
-            if not deposit_period > 0:
+                continue
+            if deposit_period is not None and not deposit_period > 0:
                 sg.popup('Deposit period should be a positive integer.')
-            if not withdraw_period > 0:
+                continue
+            if withdraw_period is not None and not withdraw_period > 0:
                 sg.popup('Withdraw period should be a positive integer.')
+                continue
 
             # Running the simulation
             print("[LOG] Starting BackTesting Simulation")
@@ -261,11 +266,13 @@ def run_gui():
                               .format(steps, market.steps, trader.balance_period))
 
                     # Deposit and Withdraw money
-                    if steps % deposit_period == 0:
-                        trader.deposit(deposit_amount)
-                    if steps % withdraw_period == 0:
-                        amount = trader.withdraw(withdraw_amount)
-                        amounts_withdrawn.append(amount)
+                    if deposit_period is not None:
+                        if steps % deposit_period == 0:
+                            trader.deposit(deposit_amount)
+                    if withdraw_period is not None:
+                        if steps % withdraw_period == 0:
+                            amount = trader.withdraw(withdraw_amount)
+                            amounts_withdrawn.append(amount)
 
                     # Step market forward in time
                     done, previous_date = market.step()
@@ -281,10 +288,10 @@ def run_gui():
 
             print("[LOG] The simulation is complete")
         elif event == "-PLOTS-":
-            pass
-            # # plot results
+
+            # plot results
             # plot_market(market, normalize=plots_normalize)
-            # compare_traders(traders_list, periods, 'bp', interval=np.int(len(trader.date_history) / 10))
+            compare_traders(traders_list, periods, 'bp', interval=np.int(len(trader.date_history) / 10))
 
             # graph = window['-GRAPH-']  # type: sg.Graph
             # graph.draw_circle(values['-GRAPH-'], fill_color='yellow', radius=20)
