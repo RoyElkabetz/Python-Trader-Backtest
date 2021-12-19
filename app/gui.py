@@ -17,6 +17,7 @@ LIEN_WIDTH = 150
 TEXT_FONT = "Helvetica"
 TEXT_SIZE = 12
 TEXT_BOX_SIZE = 10
+UNITS_BOX_SIZE = 5
 TEXT_HEAD_SIZE = 14
 HEADING_SIZE = 16
 PROGRESS_BAR_UNITS = 100000
@@ -48,23 +49,23 @@ def make_gui(theme):
                      [sg.Text('Buy fee:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input(0.08, size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
                                key='-BUY-'),
-                      sg.Text('%', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Text('%', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Text('Sell fee:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input(0.08, size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
                                key='-SELL-'),
-                      sg.Text('%', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Text('%', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Text('Tax:', size=4, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input(25, size=TEXT_BOX_SIZE-2, justification='left', font=(TEXT_FONT, TEXT_SIZE),
                                key='-TAX-'),
-                      sg.Text('%', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),],
+                      sg.Text('%', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),],
                      [sg.Text('Min buy fee:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input(2, size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
                                key='-MIN-BUY-'),
-                      sg.Text('$', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Text('$', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Text('Min sell fee:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input(2, size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE),
                                key='-MIN-SELL-'),
-                      sg.Text('$', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Text('$', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       ],
                      [sg.HSeparator(color=SEPARATOR_COLOR)], ]
 
@@ -73,7 +74,23 @@ def make_gui(theme):
                      [sg.Text('Liquid:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input(100000, size=2*TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-LIQUID-'),
-                      sg.Text('$', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE))],
+                      sg.Text('$', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE))],
+                     [sg.Text('Deposit:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Input(0, size=2*TEXT_BOX_SIZE,
+                               justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-DEPOSIT-'),
+                      sg.Text('$', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Text('Deposit period:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Input(None, size=TEXT_BOX_SIZE,
+                               justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-DEPOSIT-PERIOD-'),
+                      sg.Text('(days)', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),],
+                     [sg.Text('Withdraw:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Input(0, size=2 * TEXT_BOX_SIZE,
+                               justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-WITHDRAW-'),
+                      sg.Text('$', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Text('Withdraw period:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Input(None, size=TEXT_BOX_SIZE,
+                               justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-WITHDRAW-PERIOD-'),
+                      sg.Text('(days)', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)), ],
                      [sg.Text('Tickers:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input('AAPL, GOOG, TSLA, ORCL', size=APP_WIDTH-TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-TICKERS-')],
@@ -163,6 +180,10 @@ def run_gui():
             min_sell_fee = np.float(values['-MIN-SELL-'])
             tax = np.float(values['-TAX-'])
             liquid = np.float(values['-LIQUID-'])
+            deposit_amount = np.float(values['-DEPOSIT-'])
+            deposit_period = np.int(values['-DEPOSIT-PERIOD-']) if values['-DEPOSIT-PERIOD-'] is not None else None
+            withdraw_amount = np.float(values['-DEPOSIT-'])
+            withdraw_period = np.int(values['-WITHDRAW-PERIOD-']) if values['-WITHDRAW-PERIOD-'] is not None else None
             tickers = [ticker.strip() for ticker in values['-TICKERS-'].split(',')]
             ratios = [np.float(ratio.strip()) for ratio in values['-RATIOS-'].split(',')]
             periods = [np.int(period.strip()) for period in values['-PERIODS-'].split(',')]
@@ -188,6 +209,15 @@ def run_gui():
             if not min_buy_fee >= 0 and min_sell_fee >= 0:
                 sg.popup('Minimum sell and buy fees should be positive')
                 continue
+            if not deposit_amount >= 0:
+                sg.popup('Deposit amount should be positive float.')
+            if not withdraw_amount >= 0:
+                sg.popup('Withdraw amount should be positive float.')
+            if not deposit_period > 0:
+                sg.popup('Deposit period should be a positive integer.')
+            if not withdraw_period > 0:
+                sg.popup('Withdraw period should be a positive integer.')
+
 
             # Running the simulation
             print("[LOG] Starting BackTesting Simulation")
