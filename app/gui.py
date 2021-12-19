@@ -218,7 +218,6 @@ def run_gui():
             if not withdraw_period > 0:
                 sg.popup('Withdraw period should be a positive integer.')
 
-
             # Running the simulation
             print("[LOG] Starting BackTesting Simulation")
             traders_list = []
@@ -226,6 +225,7 @@ def run_gui():
             broker = Broker(buy_fee=buy_fee, min_buy_fee=min_buy_fee, sell_fee=sell_fee,
                             min_sell_fee=min_sell_fee, tax=tax, my_market=market)
             first_date = cp.copy(market.current_date)
+            amounts_withdrawn = []
 
             # progress bar units
             steps_to_finish = market.steps * len(periods)
@@ -259,6 +259,14 @@ def run_gui():
                     if steps % 100 == 0:
                         print('| Step: {:6.0f} / {:6.0f} | Balance period: {:4.0f} |'
                               .format(steps, market.steps, trader.balance_period))
+
+                    # Deposit and Withdraw money
+                    if steps % deposit_period == 0:
+                        trader.deposit(deposit_amount)
+                    if steps % withdraw_period == 0:
+                        amount = trader.withdraw(withdraw_amount)
+                        amounts_withdrawn.append(amount)
+
                     # Step market forward in time
                     done, previous_date = market.step()
 
