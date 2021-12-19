@@ -348,3 +348,26 @@ class Trader:
                     stocks_price[ticker].append(stock['Open'].values[0])
                 order = np.argsort(np.array(stocks_price[ticker]))
                 self.portfolio[ticker] = list(np.array(self.portfolio[ticker])[order])
+
+    def deposit(self, amount):
+        """
+        Add money to the traders liquid
+        :param amount: the amount of money to deposit
+        :return: None
+        """
+        assert amount > 0, 'Trader can only deposit positive amounts of money.'
+        self.liquid += amount
+
+    def withdraw(self, amount):
+        """
+        Withdraw money from trader's liquid
+        :param amount: the amount of money to withdraw
+        :return: amount ot 0
+        """
+        assert amount > 0, 'Trader can only withdraw positive amounts of money.'
+        if self.liquid >= amount:
+            self.liquid -= amount
+            return amount
+        else:
+            print(f'Trader does not have enough liquid (has {self.liquid} $) to withdraw {amount} $.')
+            return 0
