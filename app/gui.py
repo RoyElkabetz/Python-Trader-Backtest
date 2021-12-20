@@ -9,19 +9,20 @@ sys.path.insert(1, '/Users/royelkabetz/Git/Stock_Trade_Simulator/src')
 from src.markets import Market
 from src.brokers import Broker
 from src.traders import Trader
-from utils import market_plot, delete_figure_agg, draw_figure, compare_traders
+from utils import market_plot, profit_and_portfolio_value, profits, portfolio_values, liquids, fees_and_tax
+from utils import clean_string, delete_figure_agg, draw_figure
 
 # default arguments
-APP_WIDTH = 90
-LIEN_WIDTH = 150
+APP_WIDTH = 110
+LIEN_WIDTH = 200
 TEXT_FONT = "Helvetica"
 TEXT_SIZE = 12
 TEXT_BOX_SIZE = 10
 UNITS_BOX_SIZE = 5
 TEXT_HEAD_SIZE = 14
 HEADING_SIZE = 16
-PROGRESS_BAR_UNITS = 100000
-figure_w, figure_h = 100, 100
+PROGRESS_BAR_UNITS = 1000000
+figure_w, figure_h = 700, 450
 
 # colors
 BLUE_BUTTON_COLOR = '#FFFFFF on #2196f2'
@@ -31,7 +32,12 @@ SEPARATOR_COLOR = '#FFFFFF'
 LIGHT_GRAY_BUTTON_COLOR = f'#212021 on #e0e0e0'
 DARK_GRAY_BUTTON_COLOR = '#e0e0e0 on #212021'
 
-fig_dict = {'market_plot': market_plot, 'compare_traders': compare_traders}
+fig_dict = {' market plot': market_plot,
+            ' profit and value': profit_and_portfolio_value,
+            ' profits': profits,
+            ' portfolio values': portfolio_values,
+            ' liquids': liquids,
+            ' fees and tax': fees_and_tax}
 
 
 def make_gui(theme):
@@ -40,7 +46,7 @@ def make_gui(theme):
     # Market layout
     market_layout = [[sg.Text('Market', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
                      [sg.Text('Dates:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
-                      sg.Input('(2019, 1, 1) - (2021, 2, 15)',
+                      sg.Input('(2021, 1, 1) - (2021, 2, 15)',
                                key='-DATES-',
                                size=APP_WIDTH-TEXT_BOX_SIZE,
                                justification='left',
@@ -115,7 +121,7 @@ def make_gui(theme):
     input_layout += market_layout + broker_layout + trader_layout
     input_layout += [[sg.Text('Progress Bar', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE),
                               size=APP_WIDTH)],
-                     [sg.ProgressBar(PROGRESS_BAR_UNITS, orientation='h', size=(80, 20), bar_color=('green', 'white'),
+                     [sg.ProgressBar(PROGRESS_BAR_UNITS, orientation='h', size=(APP_WIDTH - TEXT_BOX_SIZE - 2, 20), bar_color=('green', 'white'),
                                      key='-PROGRESS BAR-')]]
     input_layout += [[sg.Button('RUN', size=(77, 2), button_color=GREEN_BUTTON_COLOR, k='-RUN-'),
                       sg.Button('HELP', size=(11, 2), k='-HELP-'),
@@ -127,13 +133,12 @@ def make_gui(theme):
 
     # Plots layout
     listbox_values = list(fig_dict)
+    col_listbox = sg.Col([[sg.Listbox(values=listbox_values, change_submits=True, size=(20, len(listbox_values)),
+                               key='-LISTBOX-')],
+                          [sg.Button('PLOT', size=(20, 1), button_color=BLUE_BUTTON_COLOR, k='-PLOT-')]])
+    col_plot = sg.Pane([sg.Col([[sg.Canvas(size=(figure_w, figure_h), key='-CANVAS-')]])], size=(figure_w, figure_h))
     plotting_layout = [[sg.Text('Plots', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
-                       [sg.Canvas(size=(figure_w, figure_h), key='-CANVAS-')],
-                       [sg.Listbox(values=listbox_values, change_submits=True, size=(28, len(listbox_values)),
-                                   key='-LISTBOX-')],
-                       [sg.Button('PLOTS', size=(11, 2), button_color=BLUE_BUTTON_COLOR, k='-PLOT-')],
-                       ]
-
+                       [col_listbox, col_plot]]
     # Theming layout
     theme_layout = [[sg.Text("See how elements look under different themes by choosing a different theme here!")],
                     [sg.Listbox(values=sg.theme_list(),
@@ -143,8 +148,8 @@ def make_gui(theme):
                     [sg.Button("Set Theme")]]
 
     # Main layout
-    layout = [[sg.Text('BackTesting Trading Simulation Application', size=(81, 1), justification='center',
-                       font=(TEXT_FONT, HEADING_SIZE), k='-TEXT HEADING-', enable_events=True)]]
+    layout = [[sg.Text('BackTesting Trading Simulation Application', size=(APP_WIDTH - TEXT_BOX_SIZE, 1),
+                       justification='center', font=(TEXT_FONT, HEADING_SIZE), k='-TEXT HEADING-', enable_events=True)]]
 
     layout += [[sg.TabGroup([[sg.Tab('Inputs', input_layout),
                               sg.Tab('Plots', plotting_layout),
@@ -193,9 +198,9 @@ def run_gui():
             deposit_period = None if values['-DEPOSIT-PERIOD-'] == '' else np.int(values['-DEPOSIT-PERIOD-'])
             withdraw_amount = np.float(values['-DEPOSIT-'])
             withdraw_period = None if values['-WITHDRAW-PERIOD-'] == '' else np.int(values['-WITHDRAW-PERIOD-'])
-            tickers = [ticker.strip() for ticker in values['-TICKERS-'].split(',')]
-            ratios = [np.float(ratio.strip()) for ratio in values['-RATIOS-'].split(',')]
-            periods = [np.int(period.strip()) for period in values['-PERIODS-'].split(',')]
+            tickers = clean_string(values['-TICKERS-'], 'letter')
+            ratios = clean_string(values['-RATIOS-'], 'float')
+            periods = clean_string(values['-PERIODS-'], 'int')
             sell_strategy = values['-SELL STRATEGY-']
             verbose = values['-VERBOSE-']
 
@@ -292,6 +297,7 @@ def run_gui():
                     if steps % trader.balance_period == 0:
                         trader.balance(tickers, p=ratios)
 
+                progress_bar.UpdateBar(cntr)
                 traders_list.append(trader)
 
             print("[LOG] The simulation is complete")
@@ -304,10 +310,18 @@ def run_gui():
             choice = values['-LISTBOX-'][0]
 
             # call function to get the figure
-            if choice == 'market_plot':
+            if choice == ' market plot':
                 fig = market_plot(market, normalize=True)
-            if choice == 'compare_traders':
-                fig = compare_traders(traders_list, periods, 'period')
+            if choice == ' profit and value':
+                fig = profit_and_portfolio_value(traders_list, periods, 'period')
+            if choice == ' profits':
+                fig = profits(traders_list, periods, 'period')
+            if choice == ' portfolio values':
+                fig = portfolio_values(traders_list, periods, 'period')
+            if choice == ' liquids':
+                fig = liquids(traders_list, periods, 'period')
+            if choice == ' fees and tax':
+                fig = fees_and_tax(traders_list, periods, 'period')
 
             figure_agg = draw_figure(window['-CANVAS-'].TKCanvas, fig)  # draw the figure
 
