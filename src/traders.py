@@ -12,7 +12,7 @@ class Trader:
         self.market = market
         self.verbose = verbose
 
-        assert sell_strategy in ['FIFO', 'LIFO', 'MIN_TAX'], \
+        assert sell_strategy in ['FIFO', 'LIFO', 'TAX_OPT'], \
             'sell_strategy should be one of the following: "FIFO", "LIFO", "TAX_OPT".'
         self.sell_strategy = sell_strategy
 
@@ -143,6 +143,7 @@ class Trader:
         """
         # update portfolio
         self.update()
+        self.sort_tickers()
 
         # save trading history
         self.liquid_history.append(self.liquid)
@@ -285,7 +286,7 @@ class Trader:
         """
         A function which checks if the trader's portfolio is in balance
         :param tickers: All the tickers in the portfolio (type: list)
-        :param p: The weights for balancing with respect to the tickers order (type: list )
+        :param p: The weights for balancing with respect to the tickers order (type: list)
         :return: None
         """
         if p is None:
@@ -335,9 +336,9 @@ class Trader:
                 stocks_dates[ticker] = []
                 stocks = self.portfolio[ticker]
                 for stock in stocks:
-                    stocks_dates[ticker].append(stock.index)
+                    stocks_dates[ticker].append(stock.index[0])
                 order = np.argsort(np.array(stocks_dates[ticker]))
-                self.portfolio[ticker] = list(np.array(self.portfolio[ticker])[order[::-1]])
+                self.portfolio[ticker] = [self.portfolio[ticker][i] for i in order[::-1]]
         # TAX_OPT ordering of portfolio stocks
         elif self.sell_strategy == 'TAX_OPT':
             stocks_price = {}
@@ -347,7 +348,7 @@ class Trader:
                 for stock in stocks:
                     stocks_price[ticker].append(stock['Open'].values[0])
                 order = np.argsort(np.array(stocks_price[ticker]))
-                self.portfolio[ticker] = list(np.array(self.portfolio[ticker])[order])
+                self.portfolio[ticker] = [self.portfolio[ticker][i] for i in order[::-1]]
 
     def deposit(self, amount):
         """

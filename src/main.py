@@ -3,7 +3,7 @@ import argparse
 from markets import Market
 from brokers import Broker
 from traders import Trader
-from utils import plot_trader, compare_traders, plot_market
+from utils import compare_traders, plot_market, profit_and_portfolio_value, compare_fees_and_tax
 import copy as cp
 
 
@@ -54,7 +54,8 @@ def simulator(liquid, tickers, periods, ratios, sell_strategy, start_date, end_d
 
     # plot results
     plot_market(market, normalize=plots_normalize)
-    compare_traders(traders_list, periods, 'bp', interval=np.int(len(trader.date_history) / 10))
+    profit_and_portfolio_value(traders_list, periods, 'balance period')
+    compare_fees_and_tax(traders_list, periods, 'balance period')
 
 
 if __name__ == '__main__':
@@ -64,8 +65,8 @@ if __name__ == '__main__':
     parser.add_argument('-tickers', type=str, required=True, nargs='+')
     parser.add_argument('-periods', type=int, required=True, nargs='+')
     parser.add_argument('-ratios', type=float, required=True, nargs='+')
-    parser.add_argument('-start_date', type=tuple, default=(2019, 1, 1))
-    parser.add_argument('-end_date', type=tuple, default=(2022, 1, 1))
+    parser.add_argument('-start_date', type=tuple, default=(2021, 1, 1))
+    parser.add_argument('-end_date', type=tuple, default=(2021, 4, 20))
     parser.add_argument('-buy_fee', type=float, default=0.08)
     parser.add_argument('-min_buy_fee', type=float, default=2.)
     parser.add_argument('-sell_fee', type=float, default=0.08)
@@ -81,6 +82,3 @@ if __name__ == '__main__':
     simulator(args.liquid, args.tickers, args.periods, args.ratios, args.sell_strategy, args.start_date, args.end_date,
               args.buy_fee, args.min_buy_fee, args.sell_fee, args.min_sell_fee, args.tax, args.verbose,
               args.plots_normalize)
-
-
-

@@ -56,6 +56,7 @@ def market_plot(market, prm='Open', tickers=None, normalize=True):
             ax.plot(data[ticker][prm], label=ticker)
     ax.legend()
     ax.set_xlabel('Date')
+    ax.tick_params(axis='x', rotation=70)
     if normalize:
         ax.set_ylabel('Normalized Value')
     else:
@@ -65,8 +66,8 @@ def market_plot(market, prm='Open', tickers=None, normalize=True):
     return fig
 
 
-def profit_and_portfolio_value(traders: list, parameter: list, parameter_name: str, interval=20):
-
+def profit_and_portfolio_value(traders: list, parameter: list, parameter_name: str):
+    interval = np.int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True)
     axes[0].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes[0].xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -87,13 +88,14 @@ def profit_and_portfolio_value(traders: list, parameter: list, parameter_name: s
         axes[1].plot(trader.date_history, trader.portfolio_value_history, label=parameter_name + ': ' + str(parameter[i]))
 
     axes[1].set_ylabel('USD')
+    axes[1].tick_params(axis='x', rotation=70)
     axes[1].legend()
     axes[1].grid()
     return fig
 
 
-def profits(traders: list, parameter: list, parameter_name: str, interval=20):
-
+def profits(traders: list, parameter: list, parameter_name: str):
+    interval = np.int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -103,13 +105,14 @@ def profits(traders: list, parameter: list, parameter_name: str, interval=20):
         axes.plot(trader.date_history, trader.profit_history, label=parameter_name + ': ' + str(parameter[i]))
 
     axes.set_ylabel('USD')
+    axes.tick_params(axis='x', rotation=70)
     axes.legend()
     axes.grid()
     return fig
 
 
-def portfolio_values(traders: list, parameter: list, parameter_name: str, interval=20):
-
+def portfolio_values(traders: list, parameter: list, parameter_name: str):
+    interval = np.int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -119,13 +122,14 @@ def portfolio_values(traders: list, parameter: list, parameter_name: str, interv
         axes.plot(trader.date_history, trader.portfolio_value_history, label=parameter_name + ': ' + str(parameter[i]))
 
     axes.set_ylabel('USD')
+    axes.tick_params(axis='x', rotation=70)
     axes.legend()
     axes.grid()
     return fig
 
 
-def liquids(traders: list, parameter: list, parameter_name: str, interval=20):
-
+def liquids(traders: list, parameter: list, parameter_name: str):
+    interval = np.int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -135,6 +139,7 @@ def liquids(traders: list, parameter: list, parameter_name: str, interval=20):
         axes.plot(trader.date_history, trader.liquid_history, label=parameter_name + ': ' + str(parameter[i]))
 
     axes.set_ylabel('USD')
+    axes.tick_params(axis='x', rotation=70)
     axes.legend()
     axes.grid()
     return fig

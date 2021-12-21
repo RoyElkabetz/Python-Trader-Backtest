@@ -22,7 +22,7 @@ UNITS_BOX_SIZE = 5
 TEXT_HEAD_SIZE = 14
 HEADING_SIZE = 16
 PROGRESS_BAR_UNITS = 1000000
-figure_w, figure_h = 700, 450
+figure_w, figure_h = 700, 300
 
 # colors
 BLUE_BUTTON_COLOR = '#FFFFFF on #2196f2'
@@ -31,6 +31,7 @@ GREEN_BUTTON_COLOR = '#FFFFFF on #00c851'
 SEPARATOR_COLOR = '#FFFFFF'
 LIGHT_GRAY_BUTTON_COLOR = f'#212021 on #e0e0e0'
 DARK_GRAY_BUTTON_COLOR = '#e0e0e0 on #212021'
+PROGRESS_BAR_COLOR = '#F08080'
 
 fig_dict = {' market plot': market_plot,
             ' profit and value': profit_and_portfolio_value,
@@ -121,11 +122,11 @@ def make_gui(theme):
     input_layout += market_layout + broker_layout + trader_layout
     input_layout += [[sg.Text('Progress Bar', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE),
                               size=APP_WIDTH)],
-                     [sg.ProgressBar(PROGRESS_BAR_UNITS, orientation='h', size=(APP_WIDTH - TEXT_BOX_SIZE - 2, 20), bar_color=('green', 'white'),
-                                     key='-PROGRESS BAR-')]]
+                     [sg.ProgressBar(PROGRESS_BAR_UNITS, orientation='h', size=(APP_WIDTH - TEXT_BOX_SIZE - 2, 20),
+                                     bar_color=(PROGRESS_BAR_COLOR, 'white'), key='-PROGRESS BAR-')]]
     input_layout += [[sg.Button('RUN', size=(77, 2), button_color=GREEN_BUTTON_COLOR, k='-RUN-'),
-                      sg.Button('HELP', size=(11, 2), k='-HELP-'),
-                      sg.Button('EXIT', size=(12, 2), k='-EXIT-')]]
+                      sg.Button('HELP', size=(25, 2), k='-HELP-'),
+                      sg.Button('EXIT', size=(25, 2), k='-EXIT-')]]
 
     # Logger layout
     logging_layout = [[sg.Text('Logger', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
@@ -136,16 +137,9 @@ def make_gui(theme):
     col_listbox = sg.Col([[sg.Listbox(values=listbox_values, change_submits=True, size=(20, len(listbox_values)),
                                key='-LISTBOX-')],
                           [sg.Button('PLOT', size=(20, 1), button_color=BLUE_BUTTON_COLOR, k='-PLOT-')]])
-    col_plot = sg.Pane([sg.Col([[sg.Canvas(size=(figure_w, figure_h), key='-CANVAS-')]])], size=(figure_w, figure_h))
+    col_plot = sg.Pane([sg.Col([[sg.Canvas(size=(figure_w, figure_h), key='-CANVAS-')]])], size=(figure_w + 10, figure_h + 100))
     plotting_layout = [[sg.Text('Plots', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
                        [col_listbox, col_plot]]
-    # Theming layout
-    theme_layout = [[sg.Text("See how elements look under different themes by choosing a different theme here!")],
-                    [sg.Listbox(values=sg.theme_list(),
-                                size=(20, 12),
-                                key='-THEME LISTBOX-',
-                                enable_events=True)],
-                    [sg.Button("Set Theme")]]
 
     # Main layout
     layout = [[sg.Text('BackTesting Trading Simulation Application', size=(APP_WIDTH - TEXT_BOX_SIZE, 1),
@@ -153,14 +147,13 @@ def make_gui(theme):
 
     layout += [[sg.TabGroup([[sg.Tab('Inputs', input_layout),
                               sg.Tab('Plots', plotting_layout),
-                              sg.Tab('Theming', theme_layout),
                               sg.Tab('Output', logging_layout)]], key='-TAB GROUP-')]]
 
     return sg.Window('BackTesting Trading Simulation Application', layout)
 
 
 def run_gui():
-    window = make_gui(sg.theme())
+    window = make_gui('BlueMono')
     canvas_elem = window['-CANVAS-']
     progress_bar = window['-PROGRESS BAR-']
     figure_agg = None
@@ -300,6 +293,7 @@ def run_gui():
                 progress_bar.UpdateBar(cntr)
                 traders_list.append(trader)
 
+            progress_bar.UpdateBar(cntr)
             print("[LOG] The simulation is complete")
         elif event == "-PLOT-":
 
@@ -307,6 +301,8 @@ def run_gui():
                 # ** IMPORTANT ** Clean up previous drawing before drawing again
                 delete_figure_agg(figure_agg)
             # get first listbox item chosen (returned as a list)
+            if len(values['-LISTBOX-']) == 0:
+                continue
             choice = values['-LISTBOX-'][0]
 
             # call function to get the figure
@@ -323,14 +319,8 @@ def run_gui():
             if choice == ' fees and tax':
                 fig = fees_and_tax(traders_list, periods, 'period')
 
-            figure_agg = draw_figure(window['-CANVAS-'].TKCanvas, fig)  # draw the figure
-
-        elif event == "Set Theme":
-            print("[LOG] Clicked Set Theme!")
-            theme_chosen = values['-THEME LISTBOX-'][0]
-            print("[LOG] User Chose Theme: " + str(theme_chosen))
-            window.close()
-            window = make_gui(theme_chosen)
+            # draw the figure
+            figure_agg = draw_figure(window['-CANVAS-'].TKCanvas, fig)
 
     window.close()
     exit(0)

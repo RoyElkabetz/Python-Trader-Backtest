@@ -24,6 +24,7 @@ def plot_market(market: Market, prm='Open', tickers=None, normalize=True):
         ax.set_ylabel('Normalized Value')
     else:
         ax.set_ylabel('USD')
+    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     ax.grid()
     plt.show()
 
@@ -82,8 +83,8 @@ def plot_trader(trader: Trader, interval=20):
     plt.show()
 
 
-def compare_traders(traders: list, parameter: list, parameter_name: str, interval=20):
-
+def compare_traders(traders: list, parameter: list, parameter_name: str):
+    interval = np.int(len(traders[0].date_history) / 10)
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=interval))
     plt.title('profit history')
@@ -108,4 +109,61 @@ def compare_traders(traders: list, parameter: list, parameter_name: str, interva
     plt.gcf().autofmt_xdate()
     plt.legend()
     plt.grid()
+    plt.show()
+
+
+def profit_and_portfolio_value(traders: list, parameter: list, parameter_name: str):
+    interval = np.int(len(traders[0].date_history) / 10)
+    fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True)
+    axes[0].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    axes[0].xaxis.set_major_locator(mdates.DayLocator(interval=interval))
+    axes[0].set_title('profit history')
+
+    for i, trader in enumerate(traders):
+        axes[0].plot(trader.date_history, trader.profit_history, label=parameter_name + ': ' + str(parameter[i]))
+
+    axes[0].set_ylabel('USD')
+    axes[0].legend()
+    axes[0].grid()
+
+    axes[1].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    axes[1].xaxis.set_major_locator(mdates.DayLocator(interval=interval))
+    axes[1].set_title('portfolio volume history')
+
+    for i, trader in enumerate(traders):
+        axes[1].plot(trader.date_history, trader.portfolio_value_history, label=parameter_name + ': ' + str(parameter[i]))
+
+    axes[1].set_ylabel('USD')
+    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
+    axes[1].legend()
+    axes[1].grid()
+    plt.show()
+
+
+def compare_fees_and_tax(traders: list, parameter: list, parameter_name: str):
+    fig, axes = plt.subplots(nrows=3, ncols=1)
+    axes[0].set_title('Tax history')
+
+    for i, trader in enumerate(traders):
+        axes[0].plot(trader.tax_history, label=parameter_name + ': ' + str(parameter[i]))
+
+    axes[0].set_ylabel('USD')
+    axes[0].legend()
+    axes[0].grid()
+    axes[1].set_title('Buy fee history')
+
+    for i, trader in enumerate(traders):
+        axes[1].plot(trader.buy_fee_history, label=parameter_name + ': ' + str(parameter[i]))
+
+    axes[1].set_ylabel('USD')
+    axes[1].legend()
+    axes[1].grid()
+    axes[2].set_title('Sell fee history')
+
+    for i, trader in enumerate(traders):
+        axes[2].plot(trader.sell_fee_history, label=parameter_name + ': ' + str(parameter[i]))
+
+    axes[2].set_ylabel('USD')
+    axes[2].legend()
+    axes[2].grid()
     plt.show()
