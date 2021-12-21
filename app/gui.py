@@ -289,6 +289,7 @@ def run_gui():
                 traders_list.append(trader)
 
             progress_bar.UpdateBar(cntr)
+            run_flag = True
             print("[LOG] The simulation is complete")
         elif event == "-PLOT-":
 
@@ -297,22 +298,47 @@ def run_gui():
                 delete_figure_agg(figure_agg)
             # get first listbox item chosen (returned as a list)
             if len(values['-LISTBOX-']) == 0:
+                sg.popup('Please pick a plot from the list')
                 continue
             choice = values['-LISTBOX-'][0]
 
             # call function to get the figure
             if choice == ' market plot':
-                fig = market_plot(market, normalize=True)
+                if 'run_flag' in locals():
+                    fig = market_plot(market, normalize=True)
+                else:
+                    sg.popup('Please run the simulation first')
+                    continue
             if choice == ' profit and value':
-                fig = profit_and_portfolio_value(traders_list, periods, 'period')
+                if 'run_flag' in locals():
+                    fig = profit_and_portfolio_value(traders_list, periods, 'period')
+                else:
+                    sg.popup('Please run the simulation first')
+                    continue
             if choice == ' profits':
-                fig = profits(traders_list, periods, 'period')
+                if 'run_flag' in locals():
+                    fig = profits(traders_list, periods, 'period')
+                else:
+                    sg.popup('Please run the simulation first')
+                    continue
             if choice == ' portfolio values':
-                fig = portfolio_values(traders_list, periods, 'period')
+                if 'run_flag' in locals():
+                    fig = portfolio_values(traders_list, periods, 'period')
+                else:
+                    sg.popup('Please run the simulation first')
+                    continue
             if choice == ' liquids':
-                fig = liquids(traders_list, periods, 'period')
+                if 'run_flag' in locals():
+                    fig = liquids(traders_list, periods, 'period')
+                else:
+                    sg.popup('Please run the simulation first')
+                    continue
             if choice == ' fees and tax':
-                fig = fees_and_tax(traders_list, periods, 'period')
+                if 'run_flag' in locals():
+                    fig = fees_and_tax(traders_list, periods, 'period')
+                else:
+                    sg.popup('Please run the simulation first')
+                    continue
 
             # draw the figure
             figure_agg = draw_figure(window['-CANVAS-'].TKCanvas, fig)
