@@ -147,7 +147,7 @@ class Trader:
 
         # save trading history
         self.liquid_history.append(self.liquid)
-        self.profit_history.append(self.portfolio_profit)
+        self.profit_history.append(self.portfolio_profit)  # market value - value when bought - tax and fees
         self.portfolio_value_history.append(self.portfolio_market_value)
         self.date_history.append(last_date)
 

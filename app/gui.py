@@ -135,7 +135,8 @@ def make_gui(theme):
     listbox_values = list(fig_dict)
     col_listbox = sg.Col([[sg.Listbox(values=listbox_values, change_submits=True, size=(20, len(listbox_values)),
                                key='-LISTBOX-')],
-                          [sg.Button('PLOT', size=(20, 1), button_color=BLUE_BUTTON_COLOR, k='-PLOT-')]])
+                          [sg.Button('PLOT', size=(20, 1), button_color=BLUE_BUTTON_COLOR, k='-PLOT-')],
+                          [sg.Button('INFO', size=(20, 1), button_color=GREEN_BUTTON_COLOR, k='-INFO-')]])
     col_plot = sg.Pane([sg.Col([[sg.Canvas(size=(figure_w, figure_h), key='-CANVAS-')]])], size=(figure_w + 10, figure_h + 100))
     plotting_layout = [[sg.Text('Plots', justification='center', font=(TEXT_FONT, TEXT_HEAD_SIZE), size=APP_WIDTH)],
                        [col_listbox, col_plot]]
@@ -315,6 +316,17 @@ def run_gui():
 
             # draw the figure
             figure_agg = draw_figure(window['-CANVAS-'].TKCanvas, fig)
+        elif event == '-INFO-':
+            sg.popup("Plots Explanation:",
+                     "market plot: plot the 'Open' value for all tickers chosen as a function of time.",
+                     "profit: A trader's profit is defined as the TMV - VWB - TAF.",
+                     "TMV = Total market value (of the portfolio) at the current time.",
+                     "VWB = Value when bought (of all the stocks in the portfolio) at the current time.",
+                     "TAF = total Tax and Fees paid by the trader up until the current moment.",
+                     "portfolio values: Plot of the portfolio market value as a function of time.",
+                     "liquids: A plot of the trader's liquid as a function of time.",
+                     "fees and tax: A plot of the total amount of fees and tax paid by the trader ",
+                     "as a function of operation number.")
 
     window.close()
     exit(0)
