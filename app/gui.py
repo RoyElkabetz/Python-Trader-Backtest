@@ -161,12 +161,7 @@ def run_gui():
     # This is an Event Loop
     while True:
         event, values = window.read()
-        if event not in (sg.TIMEOUT_EVENT, sg.WIN_CLOSED):
-            # Print everything to the logger
-            print('============ Event = ', event, ' ==============')
-            print('-------- Values Dictionary (key=value) --------')
-            for key in values:
-                print(key, ' = ', values[key])
+
         if event in (None, '-EXIT-'):
             # Exit program
             print("[LOG] Clicked Exit!")

@@ -61,6 +61,7 @@ def market_plot(market, prm='Open', tickers=None, normalize=True):
         ax.set_ylabel('Normalized Value')
     else:
         ax.set_ylabel('USD')
+    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     ax.grid()
 
     return fig
@@ -88,7 +89,7 @@ def profit_and_portfolio_value(traders: list, parameter: list, parameter_name: s
         axes[1].plot(trader.date_history, trader.portfolio_value_history, label=parameter_name + ': ' + str(parameter[i]))
 
     axes[1].set_ylabel('USD')
-    axes[1].tick_params(axis='x', rotation=70)
+    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     axes[1].legend()
     axes[1].grid()
     return fig
@@ -105,7 +106,7 @@ def profits(traders: list, parameter: list, parameter_name: str):
         axes.plot(trader.date_history, trader.profit_history, label=parameter_name + ': ' + str(parameter[i]))
 
     axes.set_ylabel('USD')
-    axes.tick_params(axis='x', rotation=70)
+    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     axes.legend()
     axes.grid()
     return fig
@@ -122,7 +123,7 @@ def portfolio_values(traders: list, parameter: list, parameter_name: str):
         axes.plot(trader.date_history, trader.portfolio_value_history, label=parameter_name + ': ' + str(parameter[i]))
 
     axes.set_ylabel('USD')
-    axes.tick_params(axis='x', rotation=70)
+    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     axes.legend()
     axes.grid()
     return fig
@@ -139,7 +140,7 @@ def liquids(traders: list, parameter: list, parameter_name: str):
         axes.plot(trader.date_history, trader.liquid_history, label=parameter_name + ': ' + str(parameter[i]))
 
     axes.set_ylabel('USD')
-    axes.tick_params(axis='x', rotation=70)
+    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     axes.legend()
     axes.grid()
     return fig
@@ -170,6 +171,7 @@ def fees_and_tax(traders: list, parameter: list, parameter_name: str):
         axes[2].plot(trader.tax_history, label=parameter_name + ': ' + str(parameter[i]))
 
     axes[2].set_ylabel('USD')
+    axes[2].set_xlabel('Operations')
     axes[2].legend()
     axes[2].grid()
 
