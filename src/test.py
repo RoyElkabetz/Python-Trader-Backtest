@@ -66,7 +66,7 @@ if __name__ == '__main__':
     for strategy in prm:
         print(f'strategy: {strategy}')
         trader = simulator(100000., ['AAPL', 'GOOG', 'SPY', 'ORCL'], [10], [0.25] * 4, strategy,
-                           (2018, 1, 1), (2021, 4, 20), 0.08, 2., 0.08, 2., 85., False, True)
+                           (2018, 1, 1), (2021, 4, 20), 0.08, 2., 0.08, 2., 25., False, True)
         traders_list.append(trader)
 
     # plot results
