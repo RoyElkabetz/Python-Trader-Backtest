@@ -1,7 +1,6 @@
 import sys
 import numpy as np
 import copy as cp
-import inspect
 from datetime import date
 import PySimpleGUI as sg
 sys.path.insert(1, '/Users/royelkabetz/Git/Stock_Trade_Simulator/src')
