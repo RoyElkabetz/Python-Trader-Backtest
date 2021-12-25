@@ -11,7 +11,7 @@ class Market:
         self.date_format = date_format
         self.start_date = date(*start_date)     # start_date = (Year, Month, Day)
         self.end_date = date(*end_date)         # end_date = (Year, Month, Day)
-        self.index = 'SNP'
+        self.index = '^GSPC'
         self.steps = None
         self.current_idx = None
         self.current_date = None
@@ -48,9 +48,9 @@ class Market:
             self.index_data = index_data
 
             # compute the percentage index return
-            index_initial_value = self.index_data.loc[0]['Open'].values[0]
+            index_initial_value = self.index_data.iloc[0]['Open']
             self.index_return_percent = (self.index_data['Open'].to_numpy() / index_initial_value - 1.) * 100.
-            
+
         except Exception as e:
             print(f'A problem occurred in {self.index} stocks data download...\n'
                   f'The exception is: {e}')

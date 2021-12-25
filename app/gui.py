@@ -3,7 +3,7 @@ import numpy as np
 import copy as cp
 from datetime import date
 import PySimpleGUI as sg
-sys.path.insert(1, '/Users/royelkabetz/Git/Stock_Trade_Simulator/src')
+sys.path.insert(1, '../src')
 
 from src.markets import Market
 from src.brokers import Broker

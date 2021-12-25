@@ -1,6 +1,7 @@
 import numpy as np
 from markets import Market
 from brokers import Broker
+import copy as cp
 
 
 class Trader:
@@ -24,11 +25,13 @@ class Trader:
         self.portfolio_profit = 0
         self.fees_and_tax = 0
         self.usable_liquid = 0
+        self.portfolio_initial_value = None
 
         # Save trading history
         self.liquid_history = []
         self.profit_history = []
         self.portfolio_value_history = []
+        self.yield_history = []
         self.date_history = []
         self.error_history = []
         self.sell_fee_history = []
@@ -149,6 +152,9 @@ class Trader:
         self.liquid_history.append(self.liquid)
         self.profit_history.append(self.portfolio_profit)  # market value - value when bought - tax and fees
         self.portfolio_value_history.append(self.portfolio_market_value)
+        if self.portfolio_initial_value is None:
+            self.portfolio_initial_value = cp.copy(self.portfolio_market_value)
+        self.yield_history.append((self.portfolio_market_value / self.portfolio_initial_value - 1.) * 100.)
         self.date_history.append(last_date)
 
     def balance(self, tickers: list, p=None):

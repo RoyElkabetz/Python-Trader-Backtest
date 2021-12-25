@@ -29,6 +29,24 @@ def plot_market(market: Market, prm='Open', tickers=None, normalize=True):
     plt.show()
 
 
+def plot_index(market: Market):
+    index_return_percent = market.index_return_percent
+
+    interval = np.int(len(market.index_return_percent) / 10)
+    fig = plt.figure(dpi=200)
+    ax = fig.add_subplot()
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
+    ax.set_title('Market Index')
+    ax.plot(market.index_data.index.to_numpy(), index_return_percent, label='S&P 500')
+    ax.legend()
+    ax.set_xlabel('Date')
+    ax.set_ylabel('USD')
+    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
+    ax.grid()
+    plt.show()
+
+
 def plot_trader(trader: Trader, interval=20):
     tax_history = trader.tax_history
     buy_fee_history = trader.buy_fee_history

@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
     # compare FIFO, LIFO, and Tax minimization strategy
     traders_list = []
-    prm = ['FIFO', 'LIFO', 'TAX_OPT']
+    prm = ['FIFO']
 
     # run the simulation
     for strategy in prm:
