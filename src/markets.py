@@ -1,6 +1,7 @@
 import pandas as pd
 import yfinance as yf
 from datetime import date
+import copy as cp
 
 
 class Market:
@@ -10,12 +11,15 @@ class Market:
         self.date_format = date_format
         self.start_date = date(*start_date)     # start_date = (Year, Month, Day)
         self.end_date = date(*end_date)         # end_date = (Year, Month, Day)
+        self.index = 'SNP'
         self.steps = None
         self.current_idx = None
         self.current_date = None
         self.stocks_data = {}
+        self.index_data = None
 
         self.get_data_()
+        self.get_index()
 
     def get_data_(self):
         """
@@ -34,6 +38,16 @@ class Market:
         self.steps = len(self.stocks_data[self.tickers[0]])
         self.current_idx = 0
         self.current_date = self.stocks_data[self.tickers[0]].index[0].date()
+
+    def get_index(self):
+        try:
+            index_data = yf.download(self.index,
+                                     start=self.start_date.strftime(self.date_format),
+                                     end=self.end_date.strftime(self.date_format))
+            self.index_data = index_data
+        except Exception as e:
+            print(f'A problem occurred in {self.index} stocks data download...\n'
+                  f'The exception is: {e}')
 
     def get_stock_data(self, ticker, stock_prm):
         """
