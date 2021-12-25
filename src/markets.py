@@ -17,6 +17,7 @@ class Market:
         self.current_date = None
         self.stocks_data = {}
         self.index_data = None
+        self.index_return_percent = None
 
         self.get_data_()
         self.get_index()
@@ -45,6 +46,11 @@ class Market:
                                      start=self.start_date.strftime(self.date_format),
                                      end=self.end_date.strftime(self.date_format))
             self.index_data = index_data
+
+            # compute the percentage index return
+            index_initial_value = self.index_data.loc[0]['Open'].values[0]
+            self.index_return_percent = (self.index_data['Open'].to_numpy() / index_initial_value - 1.) * 100.
+            
         except Exception as e:
             print(f'A problem occurred in {self.index} stocks data download...\n'
                   f'The exception is: {e}')
