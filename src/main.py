@@ -2,12 +2,13 @@ import argparse
 from markets import Market
 from brokers import Broker
 from traders import Trader
-from utils import market_plot, profit_and_portfolio_value, liquids, fees_and_tax, yields
+from utils import market_plot, profit_and_portfolio_value, liquids, fees_and_tax, yields, yields_usd
 import copy as cp
 
 
 def simulator(liquid, tickers, periods, ratios, sell_strategy, start_date, end_date, buy_fee,
-              min_buy_fee, sell_fee, min_sell_fee, tax, verbose, plots_normalize):
+              min_buy_fee, sell_fee, min_sell_fee, tax, verbose, plots_normalize,
+              deposit, deposit_period):
 
     traders_list = []
     market = Market(tickers, start_date=start_date, end_date=end_date)
@@ -45,6 +46,10 @@ def simulator(liquid, tickers, periods, ratios, sell_strategy, start_date, end_d
             # step trader forward in time
             trader.step(previous_date)
 
+            # deposit periodically
+            if deposit > 0 and steps % deposit_period == 0:
+                trader.deposit(deposit)
+
             # balance trader portfolio
             if steps % trader.balance_period == 0:
                 trader.balance(tickers, p=ratios)
@@ -56,7 +61,8 @@ def simulator(liquid, tickers, periods, ratios, sell_strategy, start_date, end_d
     profit_and_portfolio_value(traders_list, periods, 'balance period')
     fees_and_tax(traders_list, periods, 'balance period')
     liquids(traders_list, periods, 'balance period')
-    yields(traders_list, periods, 'balance period')
+    yields(traders_list, periods, 'balance period', market)
+    yields_usd(traders_list, periods, 'balance period', market, liquid)
 
 
 if __name__ == '__main__':
@@ -66,15 +72,17 @@ if __name__ == '__main__':
     parser.add_argument('-tickers', type=str, required=True, nargs='+')
     parser.add_argument('-periods', type=int, required=True, nargs='+')
     parser.add_argument('-ratios', type=float, required=True, nargs='+')
-    parser.add_argument('-start_date', type=tuple, default=(2021, 1, 1))
-    parser.add_argument('-end_date', type=tuple, default=(2021, 4, 20))
+    parser.add_argument('-start_date', type=int, required=True, nargs='+')
+    parser.add_argument('-end_date', type=int, required=True, nargs='+')
+    parser.add_argument('-deposit', type=float, default=0.0)
+    parser.add_argument('-deposit_period', type=int, default=30)
     parser.add_argument('-buy_fee', type=float, default=0.08)
     parser.add_argument('-min_buy_fee', type=float, default=2.)
     parser.add_argument('-sell_fee', type=float, default=0.08)
     parser.add_argument('-min_sell_fee', type=float, default=2.)
     parser.add_argument('-tax', type=float, default=25.)
     parser.add_argument('-liquid', type=float, required=True)
-    parser.add_argument('-verbose', type=float, default=True)
+    parser.add_argument('-verbose', type=bool, default=True)
     parser.add_argument('-plots_normalize', type=bool, default=True)
     parser.add_argument('-sell_strategy', type=str, default='FIFO', choices=['FIFO', 'LIFO', 'TAX_OPT'])
     args = parser.parse_args()
@@ -82,4 +90,4 @@ if __name__ == '__main__':
     # run the simulation
     simulator(args.liquid, args.tickers, args.periods, args.ratios, args.sell_strategy, args.start_date, args.end_date,
               args.buy_fee, args.min_buy_fee, args.sell_fee, args.min_sell_fee, args.tax, args.verbose,
-              args.plots_normalize)
+              args.plots_normalize, args.deposit, args.deposit_period)

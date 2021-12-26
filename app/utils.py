@@ -193,3 +193,23 @@ def yields(traders: list, parameter: list, parameter_name: str, market):
     axes.legend()
     axes.grid()
     return fig
+
+
+def yields_usd(traders: list, parameter: list, parameter_name: str, market, liquid):
+    interval = np.int(len(traders[0].date_history) / 10)
+    fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True)
+    axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
+    axes.set_title('Yield history')
+
+    for i, trader in enumerate(traders):
+        axes.plot(trader.date_history, trader.portfolio_value_history,
+                  label=parameter_name + ': ' + str(parameter[i]))
+
+    axes.plot(market.index_data.index.to_numpy(), (market.index_return_percent / 100 + 1) * liquid,
+              label='S&P 500')
+    axes.set_ylabel('USD')
+    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
+    axes.legend()
+    axes.grid()
+    return fig

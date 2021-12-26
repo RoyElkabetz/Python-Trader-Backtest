@@ -9,7 +9,7 @@ from src.markets import Market
 from src.brokers import Broker
 from src.traders import Trader
 from utils import market_plot, profit_and_portfolio_value, profits, portfolio_values, liquids, fees_and_tax, yields
-from utils import clean_string, delete_figure_agg, draw_figure
+from utils import clean_string, delete_figure_agg, draw_figure, yields_usd
 
 # default arguments
 APP_WIDTH = 110
@@ -38,7 +38,8 @@ fig_dict = {' market plot': market_plot,
             ' portfolio values': portfolio_values,
             ' liquids': liquids,
             ' fees and tax': fees_and_tax,
-            ' yields': yields}
+            ' yields': yields,
+            ' yields usd': yields_usd}
 
 
 def make_gui(theme):
@@ -89,7 +90,7 @@ def make_gui(theme):
                       sg.Input(0, size=2*TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-DEPOSIT-'),
                       sg.Text('$', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
-                      sg.Text('Deposit period:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Text('Deposit period:', size=TEXT_BOX_SIZE + 4, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input(size=TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-DEPOSIT-PERIOD-'),
                       sg.Text('(days)', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),],
@@ -97,7 +98,7 @@ def make_gui(theme):
                       sg.Input(0, size=2 * TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-WITHDRAW-'),
                       sg.Text('$', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
-                      sg.Text('Withdraw period:', size=TEXT_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
+                      sg.Text('Withdraw period:', size=TEXT_BOX_SIZE + 4, justification='left', font=(TEXT_FONT, TEXT_SIZE)),
                       sg.Input(size=TEXT_BOX_SIZE,
                                justification='left', font=(TEXT_FONT, TEXT_SIZE), key='-WITHDRAW-PERIOD-'),
                       sg.Text('(days)', size=UNITS_BOX_SIZE, justification='left', font=(TEXT_FONT, TEXT_SIZE)), ],
@@ -343,6 +344,12 @@ def run_gui():
             if choice == ' yields':
                 if 'run_flag' in locals():
                     fig = yields(traders_list, periods, 'period', market)
+                else:
+                    sg.popup('Please run the simulation first')
+                    continue
+            if choice == ' yields usd':
+                if 'run_flag' in locals():
+                    fig = yields_usd(traders_list, periods, 'period', market, liquid)
                 else:
                     sg.popup('Please run the simulation first')
                     continue
