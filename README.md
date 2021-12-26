@@ -4,6 +4,16 @@ Python Trader Backtest is an app for backtesting simple trading strategies based
 
 ---
 
+## Requirements
+| #   | package            | version   |
+|:----:|:--------------:|:------------:|
+| 1   | pandas |  1.2.2 |
+| 2   | numpy |  1.19.5 |
+| 3   | matplotlib |  3.2.0 |
+| 4   | yfinance |  0.1.67 |
+| 5   | PySimpleGUI |  4.55.1 |
+
+
 ## Notebook
 
 | #   | file            | Subject                                         | Colab             | Nbviewer               |
