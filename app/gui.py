@@ -342,7 +342,7 @@ def run_gui():
                     continue
             if choice == ' yields':
                 if 'run_flag' in locals():
-                    fig = yields(traders_list, periods, 'period')
+                    fig = yields(traders_list, periods, 'period', market)
                 else:
                     sg.popup('Please run the simulation first')
                     continue

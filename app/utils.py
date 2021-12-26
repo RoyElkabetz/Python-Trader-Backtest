@@ -1,4 +1,3 @@
-import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -178,7 +177,7 @@ def fees_and_tax(traders: list, parameter: list, parameter_name: str):
     return fig
 
 
-def yields(traders: list, parameter: list, parameter_name: str):
+def yields(traders: list, parameter: list, parameter_name: str, market):
     interval = np.int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -188,9 +187,9 @@ def yields(traders: list, parameter: list, parameter_name: str):
     for i, trader in enumerate(traders):
         axes.plot(trader.date_history, trader.yield_history, label=parameter_name + ': ' + str(parameter[i]))
 
+    axes.plot(market.index_data.index.to_numpy(), market.index_return_percent, label='S&P 500')
     axes.set_ylabel('[%]')
     fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     axes.legend()
     axes.grid()
     return fig
-

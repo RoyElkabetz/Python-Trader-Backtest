@@ -1,7 +1,6 @@
 import pandas as pd
 import yfinance as yf
 from datetime import date
-import copy as cp
 
 
 class Market:

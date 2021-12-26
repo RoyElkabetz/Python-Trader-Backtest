@@ -140,7 +140,7 @@ def fees_and_tax(traders: list, parameter: list, parameter_name: str):
     plt.show()
 
 
-def yields(traders: list, parameter: list, parameter_name: str):
+def yields(traders: list, parameter: list, parameter_name: str, market: Market):
     interval = np.int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -150,6 +150,7 @@ def yields(traders: list, parameter: list, parameter_name: str):
     for i, trader in enumerate(traders):
         axes.plot(trader.date_history, trader.yield_history, label=parameter_name + ': ' + str(parameter[i]))
 
+    axes.plot(traders[0].date_history, market.index_return_percent)
     axes.set_ylabel('[%]')
     fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     axes.legend()
