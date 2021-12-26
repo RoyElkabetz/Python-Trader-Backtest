@@ -1,9 +1,8 @@
-import numpy as np
 import argparse
 from markets import Market
 from brokers import Broker
 from traders import Trader
-from utils import compare_traders, plot_market, profit_and_portfolio_value, compare_fees_and_tax
+from utils import market_plot, profit_and_portfolio_value, liquids, fees_and_tax, yields
 import copy as cp
 
 
@@ -53,9 +52,11 @@ def simulator(liquid, tickers, periods, ratios, sell_strategy, start_date, end_d
         traders_list.append(trader)
 
     # plot results
-    plot_market(market, normalize=plots_normalize)
+    market_plot(market, normalize=plots_normalize)
     profit_and_portfolio_value(traders_list, periods, 'balance period')
-    compare_fees_and_tax(traders_list, periods, 'balance period')
+    fees_and_tax(traders_list, periods, 'balance period')
+    liquids(traders_list, periods, 'balance period')
+    yields(traders_list, periods, 'balance period')
 
 
 if __name__ == '__main__':

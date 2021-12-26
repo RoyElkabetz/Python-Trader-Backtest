@@ -8,7 +8,7 @@ sys.path.insert(1, '../src')
 from src.markets import Market
 from src.brokers import Broker
 from src.traders import Trader
-from utils import market_plot, profit_and_portfolio_value, profits, portfolio_values, liquids, fees_and_tax
+from utils import market_plot, profit_and_portfolio_value, profits, portfolio_values, liquids, fees_and_tax, yields
 from utils import clean_string, delete_figure_agg, draw_figure
 
 # default arguments
@@ -37,7 +37,8 @@ fig_dict = {' market plot': market_plot,
             ' profits': profits,
             ' portfolio values': portfolio_values,
             ' liquids': liquids,
-            ' fees and tax': fees_and_tax}
+            ' fees and tax': fees_and_tax,
+            ' yields': yields}
 
 
 def make_gui(theme):
@@ -336,6 +337,12 @@ def run_gui():
             if choice == ' fees and tax':
                 if 'run_flag' in locals():
                     fig = fees_and_tax(traders_list, periods, 'period')
+                else:
+                    sg.popup('Please run the simulation first')
+                    continue
+            if choice == ' yields':
+                if 'run_flag' in locals():
+                    fig = yields(traders_list, periods, 'period')
                 else:
                     sg.popup('Please run the simulation first')
                     continue
