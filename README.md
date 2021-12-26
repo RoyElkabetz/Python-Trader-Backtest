@@ -34,6 +34,10 @@ You should run the `main.py` file in the `src` folder with the following argumen
 |`-plots_normalize`     | Normalizing the market plots to unity, type=bool, default=True                                                               |
 |`-sell_strategy`       | The selling strategy for which the trader will follow, type=str, default='FIFO', choices='FIFO', 'LIFO', 'TAX_OPT'                   |
 
+For example:
+```
+python3 main.py -liquid=100000 -tickers 'AAPL' 'GOOG' 'SPY' 'ORCL' -periods 2 10 20  -ratios 0.25 0.25 0.25 0.25 -deposit 1000 -deposit_period 10 -verbose False -start_date 2019 1 1 -end_date 2021 1 1
+```
 
 ## The App
 This repository also contains a simple (and a bit ugly) python app with the same functionality of the original API. The app got three windows:
