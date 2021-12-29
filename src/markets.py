@@ -1,6 +1,7 @@
 import pandas as pd
 import yfinance as yf
 from datetime import date
+import numpy as np
 
 
 class Market:
@@ -19,6 +20,10 @@ class Market:
         self.index_return_percent = None
 
         self.get_data_()
+        if self.current_date != self.stocks_data[self.tickers[0]].index[0].date():
+            self.start_date = self.current_date
+            self.get_data_()
+
         self.get_index()
 
     def get_data_(self):
@@ -37,7 +42,14 @@ class Market:
                       f'The exception is: {e}')
         self.steps = len(self.stocks_data[self.tickers[0]])
         self.current_idx = 0
-        self.current_date = self.stocks_data[self.tickers[0]].index[0].date()
+
+        # get the first common date of all tickers
+        common_first_date = self.stocks_data[self.tickers[0]].index[0].date()
+        for ticker in self.tickers:
+            if common_first_date < self.stocks_data[ticker].index[0].date():
+                common_first_date = self.stocks_data[ticker].index[0].date()
+
+        self.current_date = common_first_date
 
     def get_index(self):
         try:

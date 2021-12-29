@@ -11,7 +11,7 @@ class Portfolio:
         self.tickers = tickers
         self.ratios = np.array(percentages) / 100.
         self.traders = None
-        assert np.sum(self.ratios) == 1, 'ratios should sum up to 1.'
+        assert np.round(np.sum(self.ratios), 5) == 1, f'ratios should sum up to 1, instead the sum was {np.sum(self.ratios)}'
         assert len(self.ratios) == len(self.tickers), 'lengths of ratios and tickers lists should be the same.'
 
     def add_traders(self, traders_list):
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # Simulator arguments
     liquid = 100000
     sell_strategy = 'TAX_OPT'
-    start_date = (2010, 1, 1)
+    start_date = (2020, 1, 1)
     end_date = (2021, 11, 1)
     buy_fee = 0
     min_buy_fee = 1.
@@ -37,11 +37,12 @@ if __name__ == '__main__':
     deposit = 0
     deposit_period = 0
     show_plots = False
+    return_traders = True
 
     # portfolios to simulate
     portfolio1 = Portfolio('Ideal Index',
                            ['SPY', 'VBK', 'IUSV', 'VBR', 'VNQ', 'VXUS', 'BSV'],
-                           [6.25, 6.25, 9.25, 9.25, 8, 31, 40])
+                           [6.25, 6.25, 9.25, 9.25, 8, 31, 30])
     portfolio2 = Portfolio('Harry Browne',
                            ['VTI', 'GLD', 'TLT', 'SHV'],
                            [25., 25., 25., 25.])
@@ -74,7 +75,7 @@ if __name__ == '__main__':
                             [33.3, 33.3, 33.4])
     portfolio12 = Portfolio('Went Fishing',
                             ['VTI', 'VB', 'VGK', 'VPL', 'VWO', 'SHY', 'TIP', 'JNK', 'VNQ', 'GLTR'],
-                            [15., 15., 10., 10., 10., 10., 10., 5., 5.])
+                            [15., 15., 10., 10., 10., 10., 10., 10., 5., 5.])
     portfolio13 = Portfolio('50/50',
                             ['VT', 'BND'],
                             [50., 50.])
@@ -95,7 +96,7 @@ if __name__ == '__main__':
                             [18., 18., 15., 6., 11., 6., 13., 13.])
     portfolio19 = Portfolio('Ultimate Buy & Hold',
                             ['SPY', 'IUSV', 'VB', 'VBR', 'VEA', 'VWO', 'EFV', 'VSS', 'VNQ', 'SHY', 'IEF'],
-                            [6., 6., 6., 6., 6., 6., 6., 12., 6., 12.])
+                            [6., 6., 6., 6., 6., 6., 6., 12., 6., 12., 28.])
     portfolio20 = Portfolio('Coffee Shop',
                             ['SPY', 'VB', 'IUSV', 'VBR', 'VNQ', 'VXUS', 'BND'],
                             [10., 10., 10., 10., 10., 10., 40.])
@@ -107,7 +108,7 @@ if __name__ == '__main__':
                             [9., 9., 9., 9., 6., 3., 6., 3., 3., 3., 40.])
     portfolio23 = Portfolio('7-12',
                             ['VOO', 'VO', 'VB', 'VEA', 'VWO', 'SHV', 'BND', 'TIP', 'BNDX', 'VNQ', 'DBC', 'IGE'],
-                            [8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3])
+                            [8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.4, 8.4, 8.4, 8.4])
     portfolio24 = Portfolio('Thick Tail',
                             ['VBR', 'BSV'],
                             [32., 68.])
@@ -128,7 +129,7 @@ if __name__ == '__main__':
         # run simulator
         traders_list = simulator(liquid, portfolio.tickers, periods, portfolio.ratios, sell_strategy, start_date,
                                  end_date, buy_fee, min_buy_fee, sell_fee, min_sell_fee, tax, verbose,
-                                 plots_normalize, deposit, deposit_period, show_plots)
+                                 plots_normalize, deposit, deposit_period, show_plots, return_traders)
 
         # save results
         portfolio.add_traders(traders_list)
