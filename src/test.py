@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # Simulator arguments
     liquid = 100000
     sell_strategy = 'TAX_OPT'
-    start_date = (2020, 1, 1)
+    start_date = (2021, 1, 1)
     end_date = (2021, 11, 1)
     buy_fee = 0
     min_buy_fee = 1.
@@ -116,13 +116,10 @@ if __name__ == '__main__':
                             ['VT', 'RWO', 'BND'],
                             [33.3, 33.3, 33.4])
 
-    # portfolios_list = [portfolio1, portfolio2, portfolio3, portfolio4, portfolio5, portfolio6, portfolio7,
-    #                    portfolio8, portfolio9, portfolio10, portfolio11, portfolio12, portfolio13, portfolio14,
-    #                    portfolio15, portfolio16, portfolio17, portfolio18, portfolio19, portfolio20, portfolio21,
-    #                    portfolio22, portfolio23, portfolio24, portfolio25
-    #                    ]
-
-    portfolios_list = [portfolio1, portfolio2
+    portfolios_list = [portfolio1, portfolio2, portfolio3, portfolio4, portfolio5, portfolio6, portfolio7,
+                       portfolio8, portfolio9, portfolio10, portfolio11, portfolio12, portfolio13, portfolio14,
+                       portfolio15, portfolio16, portfolio17, portfolio18, portfolio19, portfolio20, portfolio21,
+                       portfolio22, portfolio23, portfolio24, portfolio25
                        ]
 
     for i, portfolio in enumerate(portfolios_list):
@@ -140,11 +137,12 @@ if __name__ == '__main__':
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
     axes.set_title('Value history')
     for i, portfolio in enumerate(portfolios_list):
-        axes.plot(portfolio.traders[0].date_history, portfolio.traders[0].portfolio_value_history, label=portfolio.name)
+        axes.plot(portfolio.traders[0].date_history, portfolio.traders[0].portfolio_value_history,
+                  label=portfolio.name, linewidth=1)
 
     axes.set_ylabel('USD')
     fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
-    axes.legend()
+    axes.legend(fontsize=4)
     axes.grid()
     plt.show()
 
@@ -154,11 +152,12 @@ if __name__ == '__main__':
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
     axes.set_title('Yield history')
     for i, portfolio in enumerate(portfolios_list):
-        axes.plot(portfolio.traders[0].date_history, portfolio.traders[0].yield_history, label=portfolio.name)
+        axes.plot(portfolio.traders[0].date_history, portfolio.traders[0].yield_history,
+                  label=portfolio.name, linewidth=1)
 
     axes.set_ylabel('[%]')
     fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
-    axes.legend()
+    axes.legend(fontsize=4)
     axes.grid()
     plt.show()
 
