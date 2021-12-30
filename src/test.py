@@ -11,7 +11,8 @@ class Portfolio:
         self.tickers = tickers
         self.ratios = np.array(percentages) / 100.
         self.traders = None
-        assert np.round(np.sum(self.ratios), 5) == 1, f'ratios should sum up to 1, instead the sum was {np.sum(self.ratios)}'
+        assert np.round(np.sum(self.ratios), 5) == 1, f'ratios should sum up to 1, instead the sum was ' \
+                                                      f'{np.sum(self.ratios)}'
         assert len(self.ratios) == len(self.tickers), 'lengths of ratios and tickers lists should be the same.'
 
     def add_traders(self, traders_list):
