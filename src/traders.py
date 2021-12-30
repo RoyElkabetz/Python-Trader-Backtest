@@ -23,6 +23,9 @@ class Trader:
         self.portfolio_primary_value = 0
         self.portfolio_market_value = 0
         self.portfolio_profit = 0
+        self.sell_fee = 0
+        self.buy_fee = 0
+        self.tax = 0
         self.fees_and_tax = 0
         self.usable_liquid = 0
         self.portfolio_initial_value = None
@@ -57,7 +60,7 @@ class Trader:
         else:
             # buy the stocks
             stocks, total_price, fee = self.broker.buy_now(ticker, units)
-            self.buy_fee_history.append(fee)
+            self.buy_fee += fee
 
             # pay price
             self.liquid -= total_price
@@ -105,8 +108,8 @@ class Trader:
 
             # send stocks to broker and collect money
             money, fee, tax = self.broker.sell_now(ticker, stocks_to_sell)
-            self.sell_fee_history.append(fee)
-            self.tax_history.append(tax)
+            self.sell_fee += fee
+            self.tax += tax
 
             # update the amount of liquid
             self.liquid += money - fee - tax
@@ -149,6 +152,12 @@ class Trader:
         self.sort_tickers()
 
         # save trading history
+        self.buy_fee_history.append(self.buy_fee)
+        self.sell_fee_history.append(self.sell_fee)
+        self.tax_history.append(self.tax)
+        self.buy_fee = 0
+        self.sell_fee = 0
+        self.tax = 0
         self.liquid_history.append(self.liquid)
         self.profit_history.append(self.portfolio_profit)  # market value - value when bought - tax and fees
         self.portfolio_value_history.append(self.portfolio_market_value)

@@ -25,8 +25,8 @@ if __name__ == '__main__':
     # Simulator arguments
     liquid = 100000
     sell_strategy = 'TAX_OPT'
-    start_date = (2021, 1, 1)
-    end_date = (2021, 11, 1)
+    start_date = (2020, 1, 1)
+    end_date = (2021, 12, 30)
     buy_fee = 0
     min_buy_fee = 1.
     sell_fee = 0
@@ -116,11 +116,20 @@ if __name__ == '__main__':
                             ['VT', 'RWO', 'BND'],
                             [33.3, 33.3, 33.4])
 
-    portfolios_list = [portfolio1, portfolio2, portfolio3, portfolio4, portfolio5, portfolio6, portfolio7,
-                       portfolio8, portfolio9, portfolio10, portfolio11, portfolio12, portfolio13, portfolio14,
-                       portfolio15, portfolio16, portfolio17, portfolio18, portfolio19, portfolio20, portfolio21,
-                       portfolio22, portfolio23, portfolio24, portfolio25
-                       ]
+    # # uncomment for all portfolios
+    # portfolios_list = [portfolio1, portfolio2, portfolio3, portfolio4, portfolio5, portfolio6, portfolio7,
+    #                    portfolio8, portfolio9, portfolio10, portfolio11, portfolio12, portfolio13, portfolio14,
+    #                    portfolio15, portfolio16, portfolio17, portfolio18, portfolio19, portfolio20, portfolio21,
+    #                    portfolio22, portfolio23, portfolio24, portfolio25
+    #                    ]
+
+    # # uncomment for the first 16 portfolios
+    # portfolios_list = [portfolio1, portfolio2, portfolio3, portfolio4, portfolio5, portfolio6, portfolio7,
+    #                    portfolio8, portfolio9, portfolio10, portfolio11, portfolio12, portfolio13, portfolio14,
+    #                    portfolio15, portfolio16
+    #                    ]
+
+    portfolios_list = [portfolio1, portfolio2, portfolio3, portfolio4, portfolio5, portfolio6, portfolio7]
 
     for i, portfolio in enumerate(portfolios_list):
         # run simulator
@@ -131,6 +140,7 @@ if __name__ == '__main__':
         # save results
         portfolio.add_traders(traders_list)
 
+    # plot yields
     interval = np.int(len(portfolio.traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -159,6 +169,40 @@ if __name__ == '__main__':
     fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     axes.legend(fontsize=4)
     axes.grid()
+    plt.show()
+
+    # plot fees and tax
+    interval = np.int(len(portfolio.traders[0].date_history) / 10)
+    fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True, dpi=150)
+    axes[0].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    axes[0].xaxis.set_major_locator(mdates.DayLocator(interval=interval))
+    axes[0].set_title('Buy fee history')
+
+    for i, portfolio in enumerate(portfolios_list):
+        axes[0].plot(portfolio.traders[0].date_history, np.cumsum(portfolio.traders[0].buy_fee_history),
+                     label=portfolio.name, linewidth=1)
+
+    axes[0].set_ylabel('USD')
+    axes[0].legend(fontsize=4)
+    axes[0].grid()
+
+    axes[1].set_title('Sell fee history')
+    for i, portfolio in enumerate(portfolios_list):
+        axes[1].plot(portfolio.traders[0].date_history, np.cumsum(portfolio.traders[0].sell_fee_history),
+                     label=portfolio.name, linewidth=1)
+
+    axes[1].set_ylabel('USD')
+    axes[1].grid()
+
+    axes[2].set_title('Tax history')
+    for i, portfolio in enumerate(portfolios_list):
+        axes[2].plot(portfolio.traders[0].date_history, np.cumsum(portfolio.traders[0].tax_history),
+                     label=portfolio.name, linewidth=1)
+
+    axes[2].set_ylabel('USD')
+    axes[2].set_xlabel('Operations')
+    axes[2].grid()
+    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     plt.show()
 
 

@@ -110,12 +110,15 @@ def liquids(traders: list, parameter: list, parameter_name: str):
 
 
 def fees_and_tax(traders: list, parameter: list, parameter_name: str):
-
+    interval = np.int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True, dpi=150)
+    axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
     axes[0].set_title('Buy fee history')
 
     for i, trader in enumerate(traders):
-        axes[0].plot(trader.buy_fee_history, label=parameter_name + ': ' + str(parameter[i]))
+        axes[0].plot(trader.date_history, np.cumsum(trader.buy_fee_history),
+                     label=parameter_name + ': ' + str(parameter[i]))
 
     axes[0].set_ylabel('USD')
     axes[0].legend()
@@ -123,7 +126,8 @@ def fees_and_tax(traders: list, parameter: list, parameter_name: str):
 
     axes[1].set_title('Sell fee history')
     for i, trader in enumerate(traders):
-        axes[1].plot(trader.sell_fee_history, label=parameter_name + ': ' + str(parameter[i]))
+        axes[1].plot(trader.date_history, np.cumsum(trader.sell_fee_history),
+                     label=parameter_name + ': ' + str(parameter[i]))
 
     axes[1].set_ylabel('USD')
     axes[1].legend()
@@ -131,7 +135,8 @@ def fees_and_tax(traders: list, parameter: list, parameter_name: str):
 
     axes[2].set_title('Tax history')
     for i, trader in enumerate(traders):
-        axes[2].plot(trader.tax_history, label=parameter_name + ': ' + str(parameter[i]))
+        axes[2].plot(trader.date_history, np.cumsum(trader.tax_history),
+                     label=parameter_name + ': ' + str(parameter[i]))
 
     axes[2].set_ylabel('USD')
     axes[2].set_xlabel('Operations')
