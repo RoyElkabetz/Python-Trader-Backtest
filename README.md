@@ -18,7 +18,7 @@ Python Trader Backtest is an app for backtesting simple trading strategies based
 
 | #   | file            | Subject                                         | Colab             | Nbviewer               |
 |:----:|:--------------:|:------------------------------------------------:|:-----------------:|:---------------------:|
-| 1   | `backtesting_simulator.ipynb` | Runing the full simulator in Jupyter notebook   | [![Open In Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RoyElkabetz/Python-Trader-Backtest/blob/main/notebooks/backtesting_simulator.ipynb)        | [![nbviewer](https://raw.githubusercontent.com/jupyter/design/master/logos/Badges/nbviewer_badge.svg)]()|
+| 1   | `backtesting_simulator.ipynb` | Runing the full simulator in Jupyter notebook   | [![Open In Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RoyElkabetz/Python-Trader-Backtest/blob/main/notebooks/backtesting_simulator.ipynb)        | [![nbviewer](https://raw.githubusercontent.com/jupyter/design/master/logos/Badges/nbviewer_badge.svg)](https://nbviewer.org/github/RoyElkabetz/Python-Trader-Backtest/blob/main/notebooks/backtesting_simulator.ipynb)|
 
 
 ## Command Line API
