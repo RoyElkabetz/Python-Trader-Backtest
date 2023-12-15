@@ -175,19 +175,19 @@ class Trader:
         """
         if p is None:
             p = [1. / len(tickers)] * len(tickers)
-        tickers = np.array(tickers, dtype=np.str)
-        p = np.array(p, dtype=np.float)
+        tickers = np.array(tickers, dtype=str)
+        p = np.array(p, dtype=float)
 
         if self.verbose:
             print('\n')
             print('|------------------------------------------ BALANCING --------------------------------------------|')
 
         # get tickers information
-        owned_units = np.zeros(len(tickers), dtype=np.int)
-        market_value = np.zeros(len(tickers), dtype=np.float)
-        owned_value = np.zeros(len(tickers), dtype=np.float)
-        tax = np.zeros(len(tickers), dtype=np.float)
-        max_tax = np.zeros(len(tickers), dtype=np.float)
+        owned_units = np.zeros(len(tickers), dtype=int)
+        market_value = np.zeros(len(tickers), dtype=float)
+        owned_value = np.zeros(len(tickers), dtype=float)
+        tax = np.zeros(len(tickers), dtype=float)
+        max_tax = np.zeros(len(tickers), dtype=float)
         stocks_buy_value = {}
 
         # collect the data
@@ -202,7 +202,7 @@ class Trader:
         mean_balance = np.mean(owned_value) - margin
 
         # compute the number of units needed to balanced portfolio (buy: positive, sell: negative)
-        units_to_mean = np.array(np.round((mean_balance - owned_value) / market_value), dtype=np.int)
+        units_to_mean = np.array(np.round((mean_balance - owned_value) / market_value), dtype=self.new_method())
         units_to_mean_sign = np.sign(units_to_mean)     # sign
         units_to_mean = np.abs(units_to_mean)           # value
 
@@ -230,7 +230,7 @@ class Trader:
         # compute the units needed for balancing to the maximal weighted mean possible
         margins = market_value / 2
         value_to_max = self.usable_liquid * p - margins
-        units_of_maxed = np.array(np.round(value_to_max / market_value), dtype=np.int)
+        units_of_maxed = np.array(np.round(value_to_max / market_value), dtype=int)
         units_to_max = units_of_maxed - owned_units
         units_to_max_sign = np.sign(units_to_max)       # sign
         units_to_max = np.abs(units_to_max)             # value
@@ -257,7 +257,7 @@ class Trader:
 
         # recompute the units needed for balancing to the maximal weighted mean possible
         value_to_max = self.usable_liquid * p - margins
-        units_of_maxed = np.array(np.round(value_to_max / market_value), dtype=np.int)
+        units_of_maxed = np.array(np.round(value_to_max / market_value), dtype=int)
         units_to_max = units_of_maxed - owned_units
         units_to_max_sign = np.sign(units_to_max)       # sign
         units_to_max = np.abs(units_to_max)             # value
@@ -297,6 +297,9 @@ class Trader:
         if self.verbose:
             print('|-------------------------------------------------------------------------------------------------|')
 
+    def new_method(self):
+        return int
+
     def is_balanced(self, tickers, p=None):
         """
         A function which checks if the trader's portfolio is in balance
@@ -306,12 +309,12 @@ class Trader:
         """
         if p is None:
             p = [1. / len(tickers)] * len(tickers)
-        tickers = np.array(tickers, dtype=np.str)
-        p = np.array(p, dtype=np.float)
+        tickers = np.array(tickers, dtype=str)
+        p = np.array(p, dtype=float)
 
         # compute the owned value per ticker
-        owned_units = np.zeros(len(tickers), dtype=np.int)
-        market_value = np.zeros(len(tickers), dtype=np.float)
+        owned_units = np.zeros(len(tickers), dtype=int)
+        market_value = np.zeros(len(tickers), dtype=float)
 
         for i, ticker in enumerate(tickers):
             owned_units[i] = self.portfolio_meta[ticker]['units']

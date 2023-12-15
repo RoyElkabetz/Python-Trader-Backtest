@@ -130,7 +130,9 @@ if __name__ == '__main__':
     #                    portfolio15, portfolio16
     #                    ]
 
-    portfolios_list = [portfolio1, portfolio2, portfolio3, portfolio4, portfolio5, portfolio6, portfolio7]
+    # portfolios_list = [portfolio1, portfolio2, portfolio3, portfolio4, portfolio5, portfolio6, portfolio7]
+
+    portfolios_list = [portfolio1, portfolio2]
 
     for i, portfolio in enumerate(portfolios_list):
         # run simulator
@@ -142,7 +144,7 @@ if __name__ == '__main__':
         portfolio.add_traders(traders_list)
 
     # plot yields
-    interval = np.int(len(portfolio.traders[0].date_history) / 10)
+    interval = int(len(portfolio.traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -157,7 +159,7 @@ if __name__ == '__main__':
     axes.grid()
     plt.show()
 
-    interval = np.int(len(portfolio.traders[0].date_history) / 10)
+    interval = int(len(portfolio.traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -173,7 +175,7 @@ if __name__ == '__main__':
     plt.show()
 
     # plot fees and tax
-    interval = np.int(len(portfolio.traders[0].date_history) / 10)
+    interval = int(len(portfolio.traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True, dpi=150)
     axes[0].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes[0].xaxis.set_major_locator(mdates.DayLocator(interval=interval))
