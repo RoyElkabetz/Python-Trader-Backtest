@@ -53,8 +53,12 @@ class Trader:
         # get the stock current price
         price = self.market.get_stock_data(ticker, 'Open')
 
-        # verify trader got enough liquid to complete the trade
-        if units * price > self.liquid:
+        # estimate total cost including fees
+        total_cost = units * price
+        estimated_fee = max(self.broker.buy_fee * total_cost, self.broker.min_buy_fee)
+        
+        # verify trader got enough liquid to complete the trade including fees
+        if total_cost + estimated_fee > self.liquid:
             print(f'\n[+][+] Trader does not have enough liquid money to complete the {ticker} stock trade.\n')
             return False
         else:
@@ -75,11 +79,13 @@ class Trader:
 
             self.portfolio[ticker] += stocks
             self.portfolio_meta[ticker]['units'] += units
-            self.portfolio_primary_value += price
+            self.portfolio_primary_value += price * units
 
             if self.verbose:
+                total_price_val = total_price.item() if hasattr(total_price, 'item') else total_price
+                fee_val = fee.item() if hasattr(fee, 'item') else fee
                 print('[+] BUY  | Ticker: {:6s} | Units: {:4.0f} | Total price: {:10.2f} | Fee: {:8.2f} |'
-                      .format(ticker, units, np.round(total_price, 2), np.round(fee, 2)))
+                      .format(ticker, units, np.round(total_price_val, 2), np.round(fee_val, 2)))
 
             return True
 
@@ -115,8 +121,11 @@ class Trader:
             self.liquid += money - fee - tax
 
             if self.verbose:
+                money_val = money.item() if hasattr(money, 'item') else money
+                fee_val = fee.item() if hasattr(fee, 'item') else fee
+                tax_val = tax.item() if hasattr(tax, 'item') else tax
                 print('[+] SELL | Ticker: {:6s} | Units: {:4.0f} | Total price: {:10.2f} | Fee: {:8.2f} '
-                      '| Tax: {:8.2f} |'.format(ticker, units, np.round(money, 2), np.round(fee, 2), np.round(tax, 2)))
+                      '| Tax: {:8.2f} |'.format(ticker, units, np.round(money_val, 2), np.round(fee_val, 2), np.round(tax_val, 2)))
 
             return True
         else:
@@ -138,7 +147,7 @@ class Trader:
             self.portfolio_market_value += units * market_price
 
         # compute portfolio profit
-        self.fees_and_tax = np.sum(self.buy_fee_history) + np.sum(self.sell_fee_history) + np.sum(self.tax_history)
+        self.fees_and_tax = sum(self.buy_fee_history) + sum(self.sell_fee_history) + sum(self.tax_history)
         self.portfolio_profit = self.portfolio_market_value - self.portfolio_primary_value - self.fees_and_tax
 
     def step(self, last_date):
@@ -270,7 +279,8 @@ class Trader:
         units_to_max = units_to_max[execution_order]
 
         if self.verbose:
-            print('[+] Liquid: {:14.2f} '.format(np.round(self.liquid, 2)))
+            liquid_val = self.liquid.item() if hasattr(self.liquid, 'item') else self.liquid
+            print('[+] Liquid: {:14.2f} '.format(np.round(liquid_val, 2)))
             execute_str = ['[+] NEXT ']
             for ticker in tickers:
                 execute_str.append('| ')

@@ -58,7 +58,7 @@ class Broker:
         fee = current_total_price * self.sell_fee
         if fee < self.min_sell_fee:
             fee = self.min_sell_fee
-        tax = np.max([0, (current_total_price - stocks_value) * self.tax])
+        tax = max(0, (current_total_price - stocks_value) * self.tax)
 
         return current_total_price, fee, tax
 

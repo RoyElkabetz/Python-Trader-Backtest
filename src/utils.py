@@ -31,7 +31,7 @@ def market_plot(market, prm='Open', tickers=None, normalize=True):
 
 
 def profit_and_portfolio_value(traders: list, parameter: list, parameter_name: str):
-    interval = np.int(len(traders[0].date_history) / 10)
+    interval = int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True, dpi=150)
     axes[0].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes[0].xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -59,7 +59,7 @@ def profit_and_portfolio_value(traders: list, parameter: list, parameter_name: s
 
 
 def profits(traders: list, parameter: list, parameter_name: str):
-    interval = np.int(len(traders[0].date_history) / 10)
+    interval = int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -76,7 +76,7 @@ def profits(traders: list, parameter: list, parameter_name: str):
 
 
 def portfolio_values(traders: list, parameter: list, parameter_name: str):
-    interval = np.int(len(traders[0].date_history) / 10)
+    interval = int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -93,7 +93,7 @@ def portfolio_values(traders: list, parameter: list, parameter_name: str):
 
 
 def liquids(traders: list, parameter: list, parameter_name: str):
-    interval = np.int(len(traders[0].date_history) / 10)
+    interval = int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -110,7 +110,7 @@ def liquids(traders: list, parameter: list, parameter_name: str):
 
 
 def fees_and_tax(traders: list, parameter: list, parameter_name: str):
-    interval = np.int(len(traders[0].date_history) / 10)
+    interval = int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True, dpi=150)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -146,7 +146,7 @@ def fees_and_tax(traders: list, parameter: list, parameter_name: str):
 
 
 def yields(traders: list, parameter: list, parameter_name: str, market: Market):
-    interval = np.int(len(traders[0].date_history) / 10)
+    interval = int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
@@ -164,7 +164,7 @@ def yields(traders: list, parameter: list, parameter_name: str, market: Market):
 
 
 def yields_usd(traders: list, parameter: list, parameter_name: str, market: Market, liquid):
-    interval = np.int(len(traders[0].date_history) / 10)
+    interval = int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))

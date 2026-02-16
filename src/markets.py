@@ -78,7 +78,9 @@ class Market:
             return self.stocks_data[ticker.upper()].loc[pd.DatetimeIndex([self.current_date])]
         else:
             # return a single date single parameter of a single stock (type: float)
-            return self.stocks_data[ticker.upper()].loc[pd.DatetimeIndex([self.current_date])][stock_prm].values[0]
+            value = self.stocks_data[ticker.upper()].loc[pd.DatetimeIndex([self.current_date])][stock_prm].values[0]
+            # Ensure we return a scalar, not an array
+            return value.item() if hasattr(value, 'item') else value
 
     def step(self):
         """

@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-trader-backtest"
+version = "1.0.0"
+description = "A backtesting simulator for stock trading portfolios with periodic rebalancing strategies"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Roy Elkabetz"}
+]
+keywords = ["backtesting", "trading", "stocks", "portfolio", "yfinance"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "pandas>=1.3.0",
+    "numpy>=1.21.0",
+    "matplotlib>=3.3.0",
+    "yfinance>=0.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=22.0.0",
+    "flake8>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/RoyElkabetz/Python-Trader-Backtest"
+Repository = "https://github.com/RoyElkabetz/Python-Trader-Backtest"
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.black]
+line-length = 120
+target-version = ['py38', 'py39', 'py310', 'py311']
