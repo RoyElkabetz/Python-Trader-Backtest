@@ -1,5 +1,7 @@
 import numpy as np
 import logging
+from typing import List, Dict, Tuple, Optional, Any
+from datetime import date
 from .markets import Market
 from .brokers import Broker
 from .exceptions import InsufficientFundsError, InsufficientSharesError
@@ -11,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 class Trader:
     """ A Trader class for Backtesting simulation of a periodic balancing strategy for stocks trading"""
-    def __init__(self, liquid, balance_period, broker: Broker, market: Market, verbose=False, sell_strategy='FIFO'):
+    def __init__(self, liquid: float, balance_period: int, broker: Broker, market: Market,
+                 verbose: bool = False, sell_strategy: str = 'FIFO') -> None:
         self.liquid = liquid
         self.balance_period = balance_period
         self.broker = broker
@@ -47,13 +50,20 @@ class Trader:
         self.sell_fee_history = []
         self.buy_fee_history = []
         self.tax_history = []
+        
+        # Transaction history tracking
+        self.transaction_history = []  # List of transaction dictionaries
 
-    def buy(self, ticker, units):
+    def buy(self, ticker: str, units: int) -> bool:
         """
-        This function is used for buying new storks and adding them to the trader's portfolio
-        :param ticker: the ticker of the stock
-        :param units: number of units to buy
-        :return: True / False boolean if the trade is succeed / not
+        This function is used for buying new stocks and adding them to the trader's portfolio
+        
+        Args:
+            ticker: The ticker of the stock
+            units: Number of units to buy
+            
+        Returns:
+            True if trade succeeded, False otherwise
         """
         ticker = ticker.upper()
 
@@ -92,6 +102,19 @@ class Trader:
             self.portfolio[ticker].append(position)
             self.portfolio_meta[ticker]['units'] += units
             self.portfolio_primary_value += position.cost_basis
+            
+            # Log transaction
+            self.transaction_history.append({
+                'date': self.market.current_date,
+                'type': 'BUY',
+                'ticker': ticker,
+                'units': units,
+                'price': price,
+                'total_value': total_price,
+                'fee': fee,
+                'tax': 0,
+                'liquid_after': self.liquid
+            })
 
             if self.verbose:
                 total_price_val = total_price.item() if hasattr(total_price, 'item') else total_price
@@ -101,12 +124,16 @@ class Trader:
 
             return True
 
-    def sell(self, ticker, units):
+    def sell(self, ticker: str, units: int) -> bool:
         """
         This function is used for selling stocks from the trader's portfolio
-        :param ticker: the ticker of the stock
-        :param units: number of units to sell
-        :return: True / False boolean if the trade is succeed / not
+        
+        Args:
+            ticker: The ticker of the stock
+            units: Number of units to sell
+            
+        Returns:
+            True if trade succeeded, False otherwise
         """
         ticker = ticker.upper()
 
@@ -156,6 +183,20 @@ class Trader:
 
             # update the amount of liquid
             self.liquid += money - fee - tax
+            
+            # Log transaction
+            price = self.market.get_stock_data(ticker, 'Open')
+            self.transaction_history.append({
+                'date': self.market.current_date,
+                'type': 'SELL',
+                'ticker': ticker,
+                'units': units,
+                'price': price,
+                'total_value': money,
+                'fee': fee,
+                'tax': tax,
+                'liquid_after': self.liquid
+            })
 
             if self.verbose:
                 money_val = money.item() if hasattr(money, 'item') else money
@@ -492,11 +533,15 @@ class Trader:
         assert amount > 0, 'Trader can only deposit positive amounts of money.'
         self.liquid += amount
 
-    def withdraw(self, amount):
+    def withdraw(self, amount: float) -> float:
         """
         Withdraw money from trader's liquid
-        :param amount: the amount of money to withdraw
-        :return: amount ot 0
+        
+        Args:
+            amount: The amount of money to withdraw
+            
+        Returns:
+            Amount withdrawn or 0 if insufficient funds
         """
         assert amount > 0, 'Trader can only withdraw positive amounts of money.'
         if self.liquid >= amount:
@@ -508,3 +553,309 @@ class Trader:
             if self.verbose:
                 print(error_msg)
             return 0
+    
+    # ==================== Portfolio Analytics Methods ====================
+    
+    def get_sharpe_ratio(self, risk_free_rate: float = 0.02) -> float:
+        """
+        Calculate the Sharpe ratio of the portfolio.
+        
+        The Sharpe ratio measures risk-adjusted returns by comparing excess returns
+        to the standard deviation of returns.
+        
+        Args:
+            risk_free_rate: Annual risk-free rate (default: 2%)
+            
+        Returns:
+            Annualized Sharpe ratio
+        """
+        if len(self.portfolio_value_history) < 2:
+            return 0.0
+        
+        # Calculate daily returns
+        values = np.array(self.portfolio_value_history)
+        returns = np.diff(values) / values[:-1]
+        
+        # Calculate excess returns (assuming 252 trading days per year)
+        daily_risk_free = risk_free_rate / 252
+        excess_returns = returns - daily_risk_free
+        
+        # Calculate Sharpe ratio
+        if np.std(excess_returns) == 0:
+            return 0.0
+        
+        sharpe = np.mean(excess_returns) / np.std(excess_returns)
+        # Annualize
+        return sharpe * np.sqrt(252)
+    
+    def get_max_drawdown(self):
+        """
+        Calculate the maximum drawdown and its dates.
+        
+        Maximum drawdown is the largest peak-to-trough decline in portfolio value.
+        
+        Returns:
+            Tuple of (max_drawdown_pct, peak_date, trough_date)
+        """
+        if len(self.portfolio_value_history) < 2:
+            return 0.0, None, None
+        
+        values = np.array(self.portfolio_value_history)
+        
+        # Calculate running maximum
+        cummax = np.maximum.accumulate(values)
+        
+        # Calculate drawdown at each point
+        drawdown = (values - cummax) / cummax
+        
+        # Find maximum drawdown
+        max_dd_idx = np.argmin(drawdown)
+        max_dd = drawdown[max_dd_idx]
+        
+        # Find the peak before this drawdown
+        peak_idx = np.argmax(values[:max_dd_idx + 1]) if max_dd_idx > 0 else 0
+        
+        return (
+            max_dd * 100,  # As percentage
+            self.date_history[peak_idx] if peak_idx < len(self.date_history) else None,
+            self.date_history[max_dd_idx] if max_dd_idx < len(self.date_history) else None
+        )
+    
+    def get_total_return(self) -> float:
+        """
+        Calculate total return percentage.
+        
+        Returns:
+            Total return as a percentage
+        """
+        if self.portfolio_initial_value is None or self.portfolio_initial_value == 0:
+            return 0.0
+        
+        current_total = self.portfolio_market_value + self.liquid
+        initial_total = self.portfolio_initial_value + self.liquid_history[0] if self.liquid_history else self.portfolio_initial_value
+        
+        return ((current_total / initial_total) - 1) * 100
+    
+    def get_cagr(self) -> float:
+        """
+        Calculate Compound Annual Growth Rate.
+        
+        CAGR represents the mean annual growth rate of the portfolio.
+        
+        Returns:
+            CAGR as a percentage
+        """
+        if not self.date_history or len(self.date_history) < 2:
+            return 0.0
+        
+        # Calculate time period in years
+        days = (self.date_history[-1] - self.date_history[0]).days
+        years = days / 365.25
+        
+        if years == 0:
+            return 0.0
+        
+        # Calculate CAGR
+        if self.portfolio_initial_value == 0:
+            return 0.0
+        
+        current_total = self.portfolio_market_value + self.liquid
+        initial_total = self.portfolio_initial_value + self.liquid_history[0] if self.liquid_history else self.portfolio_initial_value
+        
+        if initial_total == 0:
+            return 0.0
+        
+        cagr = ((current_total / initial_total) ** (1 / years) - 1) * 100
+        return cagr
+    
+    def get_volatility(self, annualized: bool = True) -> float:
+        """
+        Calculate portfolio volatility (standard deviation of returns).
+        
+        Args:
+            annualized: If True, return annualized volatility
+            
+        Returns:
+            Volatility as a percentage
+        """
+        if len(self.portfolio_value_history) < 2:
+            return 0.0
+        
+        values = np.array(self.portfolio_value_history)
+        returns = np.diff(values) / values[:-1]
+        
+        volatility = np.std(returns) * 100
+        
+        if annualized:
+            volatility *= np.sqrt(252)  # Annualize assuming 252 trading days
+        
+        return volatility
+    
+    def get_win_rate(self) -> float:
+        """
+        Calculate the percentage of profitable days.
+        
+        Returns:
+            Win rate as a percentage
+        """
+        if len(self.profit_history) < 2:
+            return 0.0
+        
+        # Calculate daily profit changes
+        daily_profits = np.diff(self.profit_history)
+        
+        if len(daily_profits) == 0:
+            return 0.0
+        
+        winning_days = np.sum(daily_profits > 0)
+        total_days = len(daily_profits)
+        
+        return (winning_days / total_days) * 100
+    
+    def get_portfolio_summary(self) -> dict:
+        """
+        Get a comprehensive summary of portfolio performance.
+        
+        Returns:
+            Dictionary with key performance metrics
+        """
+        max_dd, peak_date, trough_date = self.get_max_drawdown()
+        
+        return {
+            # Current state
+            'total_value': self.portfolio_market_value + self.liquid,
+            'portfolio_value': self.portfolio_market_value,
+            'liquid': self.liquid,
+            'positions': sum(meta['units'] for meta in self.portfolio_meta.values()),
+            
+            # Returns
+            'total_return_pct': self.get_total_return(),
+            'cagr_pct': self.get_cagr(),
+            
+            # Risk metrics
+            'sharpe_ratio': self.get_sharpe_ratio(),
+            'volatility_pct': self.get_volatility(),
+            'max_drawdown_pct': max_dd,
+            'max_drawdown_peak_date': peak_date,
+            'max_drawdown_trough_date': trough_date,
+            
+            # Trading metrics
+            'win_rate_pct': self.get_win_rate(),
+            'total_fees': sum(self.buy_fee_history) + sum(self.sell_fee_history),
+            'total_tax': sum(self.tax_history),
+            'total_costs': self.cumulative_fees + self.cumulative_tax,
+            
+            # Time period
+            'start_date': self.date_history[0] if self.date_history else None,
+            'end_date': self.date_history[-1] if self.date_history else None,
+            'trading_days': len(self.date_history)
+        }
+    
+    # ==================== Transaction History Methods ====================
+    
+    def get_transaction_history(self, ticker: Optional[str] = None,
+                                transaction_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get filtered transaction history.
+        
+        Args:
+            ticker: Filter by ticker (optional)
+            transaction_type: Filter by type 'BUY' or 'SELL' (optional)
+            
+        Returns:
+            List of transaction dictionaries
+        """
+        transactions = self.transaction_history
+        
+        if ticker:
+            transactions = [t for t in transactions if t['ticker'] == ticker.upper()]
+        
+        if transaction_type:
+            transactions = [t for t in transactions if t['type'] == transaction_type.upper()]
+        
+        return transactions
+    
+    def get_transaction_summary(self) -> Dict[str, Any]:
+        """
+        Get a summary of all transactions.
+        
+        Returns:
+            Dictionary with transaction statistics
+        """
+        if not self.transaction_history:
+            return {
+                'total_transactions': 0,
+                'total_buys': 0,
+                'total_sells': 0,
+                'total_buy_value': 0,
+                'total_sell_value': 0,
+                'total_fees_paid': 0,
+                'total_tax_paid': 0,
+                'unique_tickers': set()
+            }
+        
+        buys = [t for t in self.transaction_history if t['type'] == 'BUY']
+        sells = [t for t in self.transaction_history if t['type'] == 'SELL']
+        
+        return {
+            'total_transactions': len(self.transaction_history),
+            'total_buys': len(buys),
+            'total_sells': len(sells),
+            'total_buy_value': sum(t['total_value'] for t in buys),
+            'total_sell_value': sum(t['total_value'] for t in sells),
+            'total_fees_paid': sum(t['fee'] for t in self.transaction_history),
+            'total_tax_paid': sum(t['tax'] for t in self.transaction_history),
+            'unique_tickers': set(t['ticker'] for t in self.transaction_history),
+            'first_transaction_date': self.transaction_history[0]['date'] if self.transaction_history else None,
+            'last_transaction_date': self.transaction_history[-1]['date'] if self.transaction_history else None
+        }
+    
+    def get_ticker_transactions(self, ticker: str) -> Dict[str, Any]:
+        """
+        Get all transactions for a specific ticker with analysis.
+        
+        Args:
+            ticker: Stock ticker symbol
+            
+        Returns:
+            Dictionary with ticker-specific transaction data
+        """
+        ticker = ticker.upper()
+        transactions = self.get_transaction_history(ticker=ticker)
+        
+        if not transactions:
+            return {
+                'ticker': ticker,
+                'total_transactions': 0,
+                'buys': [],
+                'sells': [],
+                'total_units_bought': 0,
+                'total_units_sold': 0,
+                'net_units': 0,
+                'total_invested': 0,
+                'total_received': 0,
+                'net_profit_loss': 0
+            }
+        
+        buys = [t for t in transactions if t['type'] == 'BUY']
+        sells = [t for t in transactions if t['type'] == 'SELL']
+        
+        total_units_bought = sum(t['units'] for t in buys)
+        total_units_sold = sum(t['units'] for t in sells)
+        total_invested = sum(t['total_value'] + t['fee'] for t in buys)
+        total_received = sum(t['total_value'] - t['fee'] - t['tax'] for t in sells)
+        
+        return {
+            'ticker': ticker,
+            'total_transactions': len(transactions),
+            'buys': buys,
+            'sells': sells,
+            'total_units_bought': total_units_bought,
+            'total_units_sold': total_units_sold,
+            'net_units': total_units_bought - total_units_sold,
+            'total_invested': total_invested,
+            'total_received': total_received,
+            'net_profit_loss': total_received - total_invested,
+            'average_buy_price': total_invested / total_units_bought if total_units_bought > 0 else 0,
+            'average_sell_price': total_received / total_units_sold if total_units_sold > 0 else 0
+        }

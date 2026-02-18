@@ -1,8 +1,8 @@
 import argparse
-from markets import Market
-from brokers import Broker
-from traders import Trader
-from utils import market_plot, profit_and_portfolio_value, liquids, fees_and_tax, yields, yields_usd
+from .markets import Market
+from .brokers import Broker
+from .traders import Trader
+from .utils import market_plot, profit_and_portfolio_value, liquids, fees_and_tax, yields, yields_usd
 import copy as cp
 
 

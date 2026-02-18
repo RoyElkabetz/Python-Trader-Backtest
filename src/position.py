@@ -86,9 +86,10 @@ class Position:
     
     def __repr__(self) -> str:
         """String representation of the position."""
+        price_str = f"{self.current_price:.2f}" if self.current_price is not None else "N/A"
         return (f"Position(ticker='{self.ticker}', units={self.units}, "
                 f"purchase_price={self.purchase_price:.2f}, "
                 f"purchase_date={self.purchase_date}, "
-                f"current_price={self.current_price:.2f if self.current_price else 'N/A'})")
+                f"current_price={price_str})")
 
 # Made with Bob

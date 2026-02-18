@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import logging
+from typing import Tuple, List
 from .markets import Market
 from .exceptions import InvalidParameterError
 from .position import Position
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 class Broker:
     """A Broker class which mitigate between the Trader and the Market. It execute the trades and collect the fees"""
     def __init__(self, buy_fee: float, min_buy_fee: float,
-                 sell_fee: float, min_sell_fee: float, tax: float, my_market: Market):
+                 sell_fee: float, min_sell_fee: float, tax: float, my_market: Market) -> None:
         # Validate parameters
         if buy_fee < 0 or sell_fee < 0:
             raise InvalidParameterError("Fees cannot be negative")
@@ -29,12 +30,16 @@ class Broker:
         
         logger.info(f"Broker initialized with buy_fee={buy_fee}%, sell_fee={sell_fee}%, tax={tax}%")
 
-    def buy_now(self, ticker, units):
+    def buy_now(self, ticker: str, units: int) -> Tuple[Position, float, float]:
         """
         Immediate buying execution
-        :param ticker: the ticker of the stock (type: str)
-        :param units: the amount of units to buy (type: int)
-        :return: position (type: Position), total_price (type: float), fee (type: float)
+        
+        Args:
+            ticker: The ticker of the stock
+            units: The amount of units to buy
+            
+        Returns:
+            Tuple of (position, total_price, fee)
         """
         # check stock price
         price = self.my_market.get_stock_data(ticker, 'Open')
@@ -57,12 +62,16 @@ class Broker:
         logger.debug(f"Buy executed: {ticker} x{units} @ ${price:.2f}, fee=${fee:.2f}")
         return position, total_price, fee
 
-    def sell_now(self, ticker, positions):
+    def sell_now(self, ticker: str, positions: List[Position]) -> Tuple[float, float, float]:
         """
         Immediate selling execution
-        :param ticker: the ticker of the stock (type: str)
-        :param positions: list of Position objects to sell (type: list[Position])
-        :return: current_total_price (type: float), fee (type: float), tax (type: float)
+        
+        Args:
+            ticker: The ticker of the stock
+            positions: List of Position objects to sell
+            
+        Returns:
+            Tuple of (current_total_price, fee, tax)
         """
         # check stock price
         current_price = self.my_market.get_stock_data(ticker, 'Open')

@@ -1,7 +1,24 @@
+"""
+Portfolio Comparison Demo
+
+This script demonstrates comparing multiple famous portfolio strategies
+using the backtesting simulator. It runs simulations for various portfolios
+and generates comparison plots.
+
+Usage:
+    python examples/portfolio_comparison_demo.py
+"""
+
+import sys
+import os
+# Add parent directory to path to import src modules
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import matplotlib.pyplot as plt
-from main import simulator
+import matplotlib.dates as mdates
+from src.main import simulator
 import numpy as np
-from utils import *
+from src.utils import *
 import copy as cp
 
 

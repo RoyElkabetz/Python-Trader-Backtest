@@ -1,6 +1,7 @@
 import pandas as pd
 import yfinance as yf
 from datetime import date
+from typing import List, Tuple, Dict, Optional, Union, Any
 import numpy as np
 import logging
 from .exceptions import DataFetchError, InvalidParameterError
@@ -9,13 +10,27 @@ logger = logging.getLogger(__name__)
 
 
 class Market:
-    """A MArket class which holds the stocks data and dates"""
-    def __init__(self, stocks: list, start_date: tuple, end_date: tuple, date_format: str = '%Y-%m-%d'):
+    """A Market class which holds the stocks data and dates"""
+    def __init__(self, stocks: List[str], start_date: Tuple[int, int, int],
+                 end_date: Tuple[int, int, int], date_format: str = '%Y-%m-%d',
+                 benchmark_index: str = '^GSPC') -> None:
+        """
+        Initialize Market with stock data and benchmark index.
+        
+        Args:
+            stocks: List of stock tickers
+            start_date: Start date as tuple (year, month, day)
+            end_date: End date as tuple (year, month, day)
+            date_format: Date format string (default: '%Y-%m-%d')
+            benchmark_index: Benchmark index ticker (default: '^GSPC' for S&P 500)
+                           Common alternatives: '^DJI' (Dow Jones), '^IXIC' (NASDAQ),
+                           '^FTSE' (FTSE 100), '^N225' (Nikkei 225)
+        """
         self.tickers = [stock.upper() for stock in stocks]
         self.date_format = date_format
         self.start_date = date(*start_date)     # start_date = (Year, Month, Day)
         self.end_date = date(*end_date)         # end_date = (Year, Month, Day)
-        self.index = '^GSPC'
+        self.index = benchmark_index
         self.steps = None
         self.current_idx = None
         self.current_date = None
@@ -24,6 +39,8 @@ class Market:
         self.index_return_percent = None
         self.current_data_cache = {}  # Cache for current day's data
 
+        logger.info(f"Initializing Market with benchmark index: {self.index}")
+        
         self.get_data_()
         if self.current_date != self.stocks_data[self.tickers[0]].index[0].date():
             self.start_date = self.current_date
@@ -31,10 +48,9 @@ class Market:
 
         self.get_index()
 
-    def get_data_(self):
+    def get_data_(self) -> None:
         """
         Download the data from the Yahoo finance website and saves it as a property
-        :return: None
         """
         for ticker in self.tickers:
             try:
@@ -62,7 +78,8 @@ class Market:
 
         self.current_date = common_first_date
 
-    def get_index(self):
+    def get_index(self) -> None:
+        """Fetch and process benchmark index data."""
         try:
             logger.info(f"Fetching benchmark index data for {self.index}")
             index_data = yf.download(self.index,
@@ -88,12 +105,16 @@ class Market:
             logger.error(f"Failed to fetch benchmark index {self.index}: {e}")
             raise DataFetchError(f"Could not fetch benchmark index {self.index}") from e
 
-    def get_stock_data(self, ticker, stock_prm):
+    def get_stock_data(self, ticker: str, stock_prm: str) -> Union[float, pd.DataFrame]:
         """
         Get a single stock data with caching for performance
-        :param ticker: the ticker of the stock
-        :param stock_prm: the parameter, i.e. Open, Close, ...
-        :return: the data (type: float or DataFrame)
+        
+        Args:
+            ticker: The ticker of the stock
+            stock_prm: The parameter (e.g., 'Open', 'Close', 'all')
+            
+        Returns:
+            Float value for specific parameter, or DataFrame for 'all'
         """
         ticker = ticker.upper()
         
@@ -112,10 +133,12 @@ class Market:
             # Ensure we return a scalar, not an array
             return value.item() if hasattr(value, 'item') else value
 
-    def step(self):
+    def step(self) -> Tuple[bool, date]:
         """
         Steps the trading date one step to the future
-        :return: tuple of (done: bool, previous_date: datetime.date)
+        
+        Returns:
+            Tuple of (done, previous_date)
         """
         # get current date
         previous_date = self.stocks_data[self.tickers[0]].index[self.current_idx].date()
@@ -134,12 +157,17 @@ class Market:
         else:
             return True, previous_date
 
-    def get_date_data(self, from_date, as_numpy=False):
+    def get_date_data(self, from_date: Tuple[int, int, int],
+                      as_numpy: bool = False) -> Tuple[List[str], Union[np.ndarray, pd.DataFrame]]:
         """
         Get all the market data from a specific date
-        :param from_date: the date (type: tuple(yyyy, m, d))
-        :param as_numpy: if True returns as numpy, if False return a pandas.DataFrame (default: False)
-        :return: lists of the tickers and the data
+        
+        Args:
+            from_date: The date as tuple (year, month, day)
+            as_numpy: If True returns as numpy array, else DataFrame
+            
+        Returns:
+            Tuple of (tickers list, data)
         """
         # date format: tuple(yyyy, m, d)
         if self.check_date_(from_date):
