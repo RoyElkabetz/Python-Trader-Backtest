@@ -3,6 +3,7 @@ import logging
 from .markets import Market
 from .brokers import Broker
 from .exceptions import InsufficientFundsError, InsufficientSharesError
+from .position import Position
 import copy as cp
 
 logger = logging.getLogger(__name__)
@@ -71,8 +72,8 @@ class Trader:
                 print(f'\n[+][+] {error_msg}\n')
             return False
         else:
-            # buy the stocks
-            stocks, total_price, fee = self.broker.buy_now(ticker, units)
+            # buy the stocks - now returns a Position object
+            position, total_price, fee = self.broker.buy_now(ticker, units)
             self.buy_fee += fee
             self.cumulative_fees += fee  # Track cumulative fees
 
@@ -87,9 +88,10 @@ class Trader:
                 self.portfolio[ticker] = []
                 self.portfolio_meta[ticker] = {'units': 0, 'sign': 0}
 
-            self.portfolio[ticker] += stocks
+            # Add the Position object to portfolio
+            self.portfolio[ticker].append(position)
             self.portfolio_meta[ticker]['units'] += units
-            self.portfolio_primary_value += price * units
+            self.portfolio_primary_value += position.cost_basis
 
             if self.verbose:
                 total_price_val = total_price.item() if hasattr(total_price, 'item') else total_price
@@ -110,20 +112,43 @@ class Trader:
 
         # check trader got enough stocks to complete the sell
         if self.portfolio_meta[ticker]['units'] >= units:
-            stocks_to_sell = []
+            positions_to_sell = []
+            units_remaining = units
 
-            # remove stocks from portfolio in a FIFO order (first in first out)
-            for _ in range(units):
+            # remove positions from portfolio in a FIFO order (first in first out)
+            while units_remaining > 0 and self.portfolio[ticker]:
+                position = self.portfolio[ticker][0]  # Peek at first position
+                
+                if position.units <= units_remaining:
+                    # Sell entire position
+                    position = self.portfolio[ticker].pop(0)
+                    units_remaining -= position.units
+                    self.portfolio_meta[ticker]['units'] -= position.units
+                    self.portfolio_primary_value -= position.cost_basis
+                    positions_to_sell.append(position)
+                else:
+                    # Partial sale - split the position
+                    units_to_sell = units_remaining
+                    cost_basis_per_unit = position.purchase_price
+                    
+                    # Create a new position for the units being sold
+                    sold_position = Position(
+                        ticker=position.ticker,
+                        units=units_to_sell,
+                        purchase_price=position.purchase_price,
+                        purchase_date=position.purchase_date,
+                        current_price=position.current_price
+                    )
+                    positions_to_sell.append(sold_position)
+                    
+                    # Update the remaining position
+                    position.units -= units_to_sell
+                    self.portfolio_meta[ticker]['units'] -= units_to_sell
+                    self.portfolio_primary_value -= cost_basis_per_unit * units_to_sell
+                    units_remaining = 0
 
-                # remove stock from portfolio and subtract its primary value from the cumulative primary value
-                stock = self.portfolio[ticker].pop(0)
-                primary_price = stock['Open'].values[0]
-                self.portfolio_meta[ticker]['units'] -= 1
-                self.portfolio_primary_value -= primary_price
-                stocks_to_sell.append(stock)
-
-            # send stocks to broker and collect money
-            money, fee, tax = self.broker.sell_now(ticker, stocks_to_sell)
+            # send positions to broker and collect money
+            money, fee, tax = self.broker.sell_now(ticker, positions_to_sell)
             self.sell_fee += fee
             self.tax += tax
             self.cumulative_fees += fee  # Track cumulative fees
@@ -190,13 +215,136 @@ class Trader:
         self.yield_history.append((self.portfolio_market_value / self.portfolio_initial_value - 1.) * 100.)
         self.date_history.append(last_date)
 
+    def _collect_portfolio_data(self, tickers):
+        """
+        Collect current portfolio data for all tickers.
+        
+        Args:
+            tickers: List of ticker symbols
+            
+        Returns:
+            Dictionary with portfolio data arrays
+        """
+        owned_units = np.zeros(len(tickers), dtype=int)
+        market_value = np.zeros(len(tickers), dtype=float)
+        owned_value = np.zeros(len(tickers), dtype=float)
+        positions_buy_value = {}
+        
+        for i, ticker in enumerate(tickers):
+            owned_units[i] = self.portfolio_meta[ticker]['units']
+            market_value[i] = self.market.get_stock_data(ticker, 'Open')
+            owned_value[i] = owned_units[i] * market_value[i]
+            positions_buy_value[ticker] = [pos.purchase_price for pos in self.portfolio[ticker]]
+        
+        return {
+            'owned_units': owned_units,
+            'market_value': market_value,
+            'owned_value': owned_value,
+            'positions_buy_value': positions_buy_value
+        }
+    
+    def _calculate_tax_for_trades(self, tickers, units_to_trade, units_sign, market_value, positions_buy_value):
+        """
+        Calculate tax for a set of trades.
+        
+        Args:
+            tickers: Array of ticker symbols
+            units_to_trade: Array of units to trade (absolute values)
+            units_sign: Array of trade direction (-1 for sell, 1 for buy)
+            market_value: Array of current market prices
+            positions_buy_value: Dict of purchase prices per ticker
+            
+        Returns:
+            Array of tax amounts per ticker
+        """
+        tax = np.zeros(len(tickers), dtype=float)
+        
+        for i, ticker in enumerate(tickers):
+            if units_sign[i] < 0:  # Selling
+                total_market_value = units_to_trade[i] * market_value[i]
+                total_owned_value = np.sum(positions_buy_value[ticker][:int(units_to_trade[i])])
+                tax[i] = (total_market_value - total_owned_value) * self.broker.tax
+        
+        # Drop negative tax (from selling at a loss)
+        return tax * (tax > 0)
+    
+    def _calculate_fees_for_trades(self, units_to_trade, units_sign, market_value):
+        """
+        Calculate fees for a set of trades.
+        
+        Args:
+            units_to_trade: Array of units to trade (absolute values)
+            units_sign: Array of trade direction (-1 for sell, 1 for buy)
+            market_value: Array of current market prices
+            
+        Returns:
+            Tuple of (sell_fee, buy_fee, total_fee)
+        """
+        sell_fee = np.max([
+            np.sum(market_value * units_to_trade * (units_sign < 0)) * self.broker.sell_fee,
+            np.sum(units_sign < 0) * self.broker.min_sell_fee
+        ])
+        buy_fee = np.max([
+            np.sum(market_value * units_to_trade * (units_sign > 0)) * self.broker.buy_fee,
+            np.sum(units_sign > 0) * self.broker.min_buy_fee
+        ])
+        return sell_fee, buy_fee, sell_fee + buy_fee
+    
+    def _calculate_target_units(self, owned_units, market_value, weights, usable_liquid):
+        """
+        Calculate target units for each ticker based on weights.
+        
+        Args:
+            owned_units: Array of currently owned units
+            market_value: Array of current market prices
+            weights: Array of target weights
+            usable_liquid: Total liquid available for rebalancing
+            
+        Returns:
+            Tuple of (units_to_trade, trade_sign) where trade_sign is -1 for sell, 1 for buy
+        """
+        margins = market_value / 2
+        value_to_target = usable_liquid * weights - margins
+        units_target = np.array(np.round(value_to_target / market_value), dtype=int)
+        units_to_trade = units_target - owned_units
+        trade_sign = np.sign(units_to_trade)
+        units_to_trade = np.abs(units_to_trade)
+        
+        return units_to_trade, trade_sign
+    
+    def _print_balance_info(self, tickers, owned_value, value_to_max, values_for_execution, market_value, execution_order):
+        """Print verbose balance information."""
+        liquid_val = self.liquid.item() if hasattr(self.liquid, 'item') else self.liquid
+        print('[+] Liquid: {:14.2f} '.format(np.round(liquid_val, 2)))
+        execute_str = ['[+] NEXT ']
+        for ticker in tickers:
+            execute_str.append('| ')
+            execute_str.append(ticker)
+            execute_str.append(': {:10.2f} ')
+        execute_str.append('|')
+        print('|-------------------------------------------------------------------------------------------------|')
+        print(''.join(['[+] CURR '] + execute_str[1:]).format(*owned_value[execution_order]))
+        print(''.join(['[+] GOAL '] + execute_str[1:]).format(*value_to_max[execution_order]))
+        print(''.join(execute_str).format(*values_for_execution[execution_order]))
+        print(''.join(['[+] UNIT '] + execute_str[1:]).format(*market_value[execution_order]))
+        print('|-------------------------------------------------------------------------------------------------|')
+    
     def balance(self, tickers: list, p=None):
         """
-        This function balances the trader's portfolio according to a given weight list
+        Balance the trader's portfolio according to given weights.
+        
+        This method rebalances the portfolio by:
+        1. Collecting current portfolio data
+        2. Calculating target positions based on weights
+        3. Estimating taxes and fees
+        4. Executing trades in optimal order (sells before buys)
+        5. Verifying the balance
+        
         :param tickers: All the tickers in the portfolio (type: list)
-        :param p: The weights for balancing with respect to the tickers order (type: list )
+        :param p: The weights for balancing with respect to the tickers order (type: list)
         :return: None
         """
+        # Initialize weights and convert to numpy arrays
         if p is None:
             p = [1. / len(tickers)] * len(tickers)
         tickers = np.array(tickers, dtype=str)
@@ -206,116 +354,67 @@ class Trader:
             print('\n')
             print('|------------------------------------------ BALANCING --------------------------------------------|')
 
-        # get tickers information
-        owned_units = np.zeros(len(tickers), dtype=int)
-        market_value = np.zeros(len(tickers), dtype=float)
-        owned_value = np.zeros(len(tickers), dtype=float)
-        tax = np.zeros(len(tickers), dtype=float)
-        max_tax = np.zeros(len(tickers), dtype=float)
-        stocks_buy_value = {}
+        # Step 1: Collect current portfolio data
+        portfolio_data = self._collect_portfolio_data(tickers)
+        owned_units = portfolio_data['owned_units']
+        market_value = portfolio_data['market_value']
+        owned_value = portfolio_data['owned_value']
+        positions_buy_value = portfolio_data['positions_buy_value']
 
-        # collect the data
-        for i, ticker in enumerate(tickers):
-            owned_units[i] = self.portfolio_meta[ticker]['units']
-            market_value[i] = self.market.get_stock_data(ticker, 'Open')
-            owned_value[i] = owned_units[i] * market_value[i]
-            stocks_buy_value[ticker] = [stock['Open'].values[0] for stock in self.portfolio[ticker]]
-
-        # compute tax for balancing to the mean (worst case)
+        # Step 2: First iteration - estimate with mean balance
         margin = np.sum(market_value) / 2
         mean_balance = np.mean(owned_value) - margin
-
-        # compute the number of units needed to balanced portfolio (buy: positive, sell: negative)
         units_to_mean = np.array(np.round((mean_balance - owned_value) / market_value), dtype=int)
-        units_to_mean_sign = np.sign(units_to_mean)     # sign
-        units_to_mean = np.abs(units_to_mean)           # value
+        units_to_mean_sign = np.sign(units_to_mean)
+        units_to_mean = np.abs(units_to_mean)
 
-        # compute the tax and total fees for this set of trades
-        for i, ticker in enumerate(tickers):
-            if units_to_mean_sign[i] < 0:
-                total_market_value = units_to_mean[i] * market_value[i]
-                total_owned_value = np.sum(stocks_buy_value[ticker][:units_to_mean[i]])
-                tax[i] = (total_market_value - total_owned_value) * self.broker.tax
+        tax = self._calculate_tax_for_trades(tickers, units_to_mean, units_to_mean_sign,
+                                             market_value, positions_buy_value)
+        _, _, total_fee = self._calculate_fees_for_trades(units_to_mean, units_to_mean_sign, market_value)
 
-        # drop the negative tax (which comes from selling in loss)
-        tax = tax * (tax > 0)
-
-        # compute the fees for trades
-        sell_fee = np.max([np.sum(market_value * units_to_mean * (units_to_mean_sign < 0)) *
-                           self.broker.sell_fee, np.sum(units_to_mean_sign < 0) * self.broker.min_sell_fee])
-        buy_fee = np.max([np.sum(market_value * units_to_mean * (units_to_mean_sign > 0)) *
-                          self.broker.buy_fee, np.sum(units_to_mean_sign > 0) * self.broker.min_buy_fee])
-        total_fee = sell_fee + buy_fee
-
-        # compute the estimated amount of total liquid (trader's portfolio market value + total liquid - tax and fees
-        # used for balancing to the mean)
+        # Calculate usable liquid after estimated costs
         self.usable_liquid = self.liquid + np.sum(owned_value) - np.sum(tax) - total_fee
 
-        # compute the units needed for balancing to the maximal weighted mean possible
-        margins = market_value / 2
-        value_to_max = self.usable_liquid * p - margins
-        units_of_maxed = np.array(np.round(value_to_max / market_value), dtype=int)
-        units_to_max = units_of_maxed - owned_units
-        units_to_max_sign = np.sign(units_to_max)       # sign
-        units_to_max = np.abs(units_to_max)             # value
+        # Step 3: Calculate target positions based on weights
+        units_to_max, units_to_max_sign = self._calculate_target_units(
+            owned_units, market_value, p, self.usable_liquid
+        )
 
-        # compute the tax for balancing at the maximal mean possible
-        for i, ticker in enumerate(tickers):
-            if units_to_max_sign[i] < 0:
-                total_market_value = units_to_max[i] * market_value[i]
-                total_owned_value = np.sum(stocks_buy_value[ticker][:units_to_max[i]])
-                max_tax[i] = (total_market_value - total_owned_value) * self.broker.tax
+        # Step 4: Refine with actual target calculations
+        max_tax = self._calculate_tax_for_trades(tickers, units_to_max, units_to_max_sign,
+                                                 market_value, positions_buy_value)
+        _, _, max_total_fee = self._calculate_fees_for_trades(units_to_max, units_to_max_sign, market_value)
 
-        # drop the negative tax (which comes from selling in loss)
-        max_tax = max_tax * (max_tax > 0)
-
-        # compute the fee for balancing at the maximal mean possible
-        max_sell_fee = np.max([np.sum(market_value * units_to_max * (units_to_max_sign < 0)) *
-                               self.broker.sell_fee, np.sum(units_to_max_sign < 0) * self.broker.min_sell_fee])
-        max_buy_fee = np.max([np.sum(market_value * units_to_max * (units_to_max_sign > 0)) *
-                              self.broker.buy_fee, np.sum(units_to_max_sign > 0) * self.broker.min_buy_fee])
-        max_total_fee = max_sell_fee + max_buy_fee
-
-        # compute the total liquid assuming the trader is balancing to the maximal mean possible
+        # Recalculate usable liquid with refined estimates
         self.usable_liquid = self.liquid + np.sum(owned_value) - np.sum(max_tax) - max_total_fee
 
-        # recompute the units needed for balancing to the maximal weighted mean possible
-        value_to_max = self.usable_liquid * p - margins
-        units_of_maxed = np.array(np.round(value_to_max / market_value), dtype=int)
-        units_to_max = units_of_maxed - owned_units
-        units_to_max_sign = np.sign(units_to_max)       # sign
-        units_to_max = np.abs(units_to_max)             # value
+        # Recalculate target units with refined usable liquid
+        units_to_max, units_to_max_sign = self._calculate_target_units(
+            owned_units, market_value, p, self.usable_liquid
+        )
 
-        # sort operations such that selling comes before buying
+        # Step 5: Sort operations (sells before buys)
         values_for_execution = units_to_max_sign * units_to_max * market_value
         execution_order = np.argsort(values_for_execution)
         tickers = tickers[execution_order]
         units_to_max_sign = units_to_max_sign[execution_order]
         units_to_max = units_to_max[execution_order]
 
+        # Step 6: Print verbose information
         if self.verbose:
-            liquid_val = self.liquid.item() if hasattr(self.liquid, 'item') else self.liquid
-            print('[+] Liquid: {:14.2f} '.format(np.round(liquid_val, 2)))
-            execute_str = ['[+] NEXT ']
-            for ticker in tickers:
-                execute_str.append('| ')
-                execute_str.append(ticker)
-                execute_str.append(': {:10.2f} ')
-            execute_str.append('|')
-            print('|-------------------------------------------------------------------------------------------------|')
-            print(''.join(['[+] CURR '] + execute_str[1:]).format(*owned_value[execution_order]))
-            print(''.join(['[+] GOAL '] + execute_str[1:]).format(*value_to_max[execution_order]))
-            print(''.join(execute_str).format(*values_for_execution[execution_order]))
-            print(''.join(['[+] UNIT '] + execute_str[1:]).format(*market_value[execution_order]))
-            print('|-------------------------------------------------------------------------------------------------|')
+            margins = market_value / 2
+            value_to_max = self.usable_liquid * p - margins
+            self._print_balance_info(tickers, owned_value, value_to_max,
+                                    values_for_execution, market_value, execution_order)
 
-        # execute balance
+        # Step 7: Execute trades
         for i, ticker in enumerate(tickers):
             if units_to_max_sign[i] > 0:
                 self.buy(ticker, units_to_max[i])
-            if units_to_max_sign[i] < 0:
+            elif units_to_max_sign[i] < 0:
                 self.sell(ticker, units_to_max[i])
 
+        # Step 8: Update and verify balance
         self.update()
         self.is_balanced(tickers, p=p[execution_order])
 
@@ -361,34 +460,28 @@ class Trader:
 
     def sort_tickers(self):
         """
-        Sort stocks in portfolio for each ticker in one of the following orders: FIFO, LIFO, TAX_OPT,
-        where TAX_OPT will sort the stocks according to their Opening prices, such that when sold would lead to
+        Sort positions in portfolio for each ticker in one of the following orders: FIFO, LIFO, TAX_OPT,
+        where TAX_OPT will sort the positions according to their purchase prices, such that when sold would lead to
         a minimal tax payment.
         :return: None
         """
-        # FIFO ordering of portfolio stocks
+        # FIFO ordering of portfolio positions
         if self.sell_strategy == 'FIFO':
             return
-        # LIFO ordering of portfolio stocks
+        # LIFO ordering of portfolio positions (Last In First Out)
         elif self.sell_strategy == 'LIFO':
-            stocks_dates = {}
             for ticker in self.portfolio:
-                stocks_dates[ticker] = []
-                stocks = self.portfolio[ticker]
-                for stock in stocks:
-                    stocks_dates[ticker].append(stock.index[0])
-                order = np.argsort(np.array(stocks_dates[ticker]))
-                self.portfolio[ticker] = [self.portfolio[ticker][i] for i in order[::-1]]
-        # TAX_OPT ordering of portfolio stocks
+                positions = self.portfolio[ticker]
+                # Sort by purchase date (newest first for LIFO)
+                positions_with_dates = [(pos.purchase_date, pos) for pos in positions]
+                positions_with_dates.sort(key=lambda x: x[0], reverse=True)
+                self.portfolio[ticker] = [pos for _, pos in positions_with_dates]
+        # TAX_OPT ordering of portfolio positions (sell highest cost basis first to minimize tax)
         elif self.sell_strategy == 'TAX_OPT':
-            stocks_price = {}
             for ticker in self.portfolio:
-                stocks_price[ticker] = []
-                stocks = self.portfolio[ticker]
-                for stock in stocks:
-                    stocks_price[ticker].append(stock['Open'].values[0])
-                order = np.argsort(np.array(stocks_price[ticker]))
-                self.portfolio[ticker] = [self.portfolio[ticker][i] for i in order[::-1]]
+                positions = self.portfolio[ticker]
+                # Sort by purchase price (highest first to minimize capital gains)
+                self.portfolio[ticker] = sorted(positions, key=lambda pos: pos.purchase_price, reverse=True)
 
     def deposit(self, amount):
         """

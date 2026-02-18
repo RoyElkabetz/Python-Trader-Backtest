@@ -3,6 +3,7 @@ import pandas as pd
 import logging
 from .markets import Market
 from .exceptions import InvalidParameterError
+from .position import Position
 
 logger = logging.getLogger(__name__)
 
@@ -33,44 +34,52 @@ class Broker:
         Immediate buying execution
         :param ticker: the ticker of the stock (type: str)
         :param units: the amount of units to buy (type: int)
-        :return: stocks (type: list[pandas.DataFrame, ...]), total_price (type: float), fee (type: float)
+        :return: position (type: Position), total_price (type: float), fee (type: float)
         """
         # check stock price
         price = self.my_market.get_stock_data(ticker, 'Open')
         total_price = price * units
 
-        # get stocks
-        stock = self.my_market.get_stock_data(ticker, 'all')
-        stocks = [stock] * units
+        # Create a Position object instead of storing DataFrames
+        position = Position(
+            ticker=ticker,
+            units=units,
+            purchase_price=price,
+            purchase_date=self.my_market.current_date,
+            current_price=price
+        )
 
         # compute the buying fee
         fee = self.buy_fee * total_price
         if fee < self.min_buy_fee:
             fee = self.min_buy_fee
 
-        return stocks, total_price, fee
+        logger.debug(f"Buy executed: {ticker} x{units} @ ${price:.2f}, fee=${fee:.2f}")
+        return position, total_price, fee
 
-    def sell_now(self, ticker, stocks):
+    def sell_now(self, ticker, positions):
         """
         Immediate selling execution
         :param ticker: the ticker of the stock (type: str)
-        :param stocks: the amount of units to sell (type: int)
+        :param positions: list of Position objects to sell (type: list[Position])
         :return: current_total_price (type: float), fee (type: float), tax (type: float)
         """
         # check stock price
         current_price = self.my_market.get_stock_data(ticker, 'Open')
-        current_total_price = current_price * len(stocks)
+        
+        # Calculate total units and cost basis
+        total_units = sum(pos.units for pos in positions)
+        current_total_price = current_price * total_units
 
-        # compute the stocks value
-        stocks_value = 0
-        for stock in stocks:
-            stocks_value += stock['Open'].values[0]
+        # compute the positions' original value (cost basis)
+        positions_cost_basis = sum(pos.cost_basis for pos in positions)
 
         # compute the sell fee with respect to current stock price and tax
         fee = current_total_price * self.sell_fee
         if fee < self.min_sell_fee:
             fee = self.min_sell_fee
-        tax = max(0, (current_total_price - stocks_value) * self.tax)
+        tax = max(0, (current_total_price - positions_cost_basis) * self.tax)
 
+        logger.debug(f"Sell executed: {ticker} x{total_units} @ ${current_price:.2f}, fee=${fee:.2f}, tax=${tax:.2f}")
         return current_total_price, fee, tax
 
