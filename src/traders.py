@@ -1,7 +1,11 @@
 import numpy as np
-from markets import Market
-from brokers import Broker
+import logging
+from .markets import Market
+from .brokers import Broker
+from .exceptions import InsufficientFundsError, InsufficientSharesError
 import copy as cp
+
+logger = logging.getLogger(__name__)
 
 
 class Trader:
@@ -27,6 +31,8 @@ class Trader:
         self.buy_fee = 0
         self.tax = 0
         self.fees_and_tax = 0
+        self.cumulative_fees = 0.0  # Track cumulative fees incrementally
+        self.cumulative_tax = 0.0   # Track cumulative tax incrementally
         self.usable_liquid = 0
         self.portfolio_initial_value = None
 
@@ -59,12 +65,16 @@ class Trader:
         
         # verify trader got enough liquid to complete the trade including fees
         if total_cost + estimated_fee > self.liquid:
-            print(f'\n[+][+] Trader does not have enough liquid money to complete the {ticker} stock trade.\n')
+            error_msg = f'Trader does not have enough liquid money to complete the {ticker} stock trade. Required: {total_cost + estimated_fee:.2f}, Available: {self.liquid:.2f}'
+            logger.warning(error_msg)
+            if self.verbose:
+                print(f'\n[+][+] {error_msg}\n')
             return False
         else:
             # buy the stocks
             stocks, total_price, fee = self.broker.buy_now(ticker, units)
             self.buy_fee += fee
+            self.cumulative_fees += fee  # Track cumulative fees
 
             # pay price
             self.liquid -= total_price
@@ -116,6 +126,8 @@ class Trader:
             money, fee, tax = self.broker.sell_now(ticker, stocks_to_sell)
             self.sell_fee += fee
             self.tax += tax
+            self.cumulative_fees += fee  # Track cumulative fees
+            self.cumulative_tax += tax   # Track cumulative tax
 
             # update the amount of liquid
             self.liquid += money - fee - tax
@@ -129,7 +141,10 @@ class Trader:
 
             return True
         else:
-            print(f'\n[+][+] The trader does not have enough {ticker} units to complete the trade.\n')
+            error_msg = f'The trader does not have enough {ticker} units to complete the trade. Required: {units}, Available: {self.portfolio_meta[ticker]["units"]}'
+            logger.warning(error_msg)
+            if self.verbose:
+                print(f'\n[+][+] {error_msg}\n')
             return False
 
     def update(self):
@@ -146,8 +161,8 @@ class Trader:
             units = self.portfolio_meta[ticker]['units']
             self.portfolio_market_value += units * market_price
 
-        # compute portfolio profit
-        self.fees_and_tax = sum(self.buy_fee_history) + sum(self.sell_fee_history) + sum(self.tax_history)
+        # compute portfolio profit using cumulative tracking (O(1) instead of O(n))
+        self.fees_and_tax = self.cumulative_fees + self.cumulative_tax
         self.portfolio_profit = self.portfolio_market_value - self.portfolio_primary_value - self.fees_and_tax
 
     def step(self, last_date):
@@ -211,7 +226,7 @@ class Trader:
         mean_balance = np.mean(owned_value) - margin
 
         # compute the number of units needed to balanced portfolio (buy: positive, sell: negative)
-        units_to_mean = np.array(np.round((mean_balance - owned_value) / market_value), dtype=self.new_method())
+        units_to_mean = np.array(np.round((mean_balance - owned_value) / market_value), dtype=int)
         units_to_mean_sign = np.sign(units_to_mean)     # sign
         units_to_mean = np.abs(units_to_mean)           # value
 
@@ -307,9 +322,6 @@ class Trader:
         if self.verbose:
             print('|-------------------------------------------------------------------------------------------------|')
 
-    def new_method(self):
-        return int
-
     def is_balanced(self, tickers, p=None):
         """
         A function which checks if the trader's portfolio is in balance
@@ -398,5 +410,8 @@ class Trader:
             self.liquid -= amount
             return amount
         else:
-            print(f'Trader does not have enough liquid (has {self.liquid} $) to withdraw {amount} $.')
+            error_msg = f'Trader does not have enough liquid (has {self.liquid:.2f} $) to withdraw {amount:.2f} $.'
+            logger.warning(error_msg)
+            if self.verbose:
+                print(error_msg)
             return 0

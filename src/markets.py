@@ -2,6 +2,10 @@ import pandas as pd
 import yfinance as yf
 from datetime import date
 import numpy as np
+import logging
+from .exceptions import DataFetchError, InvalidParameterError
+
+logger = logging.getLogger(__name__)
 
 
 class Market:
@@ -18,6 +22,7 @@ class Market:
         self.stocks_data = {}
         self.index_data = None
         self.index_return_percent = None
+        self.current_data_cache = {}  # Cache for current day's data
 
         self.get_data_()
         if self.current_date != self.stocks_data[self.tickers[0]].index[0].date():
@@ -33,13 +38,19 @@ class Market:
         """
         for ticker in self.tickers:
             try:
+                logger.info(f"Fetching data for {ticker}")
                 stock_data = yf.download(ticker,
                                          start=self.start_date.strftime(self.date_format),
                                          end=self.end_date.strftime(self.date_format))
+                
+                if stock_data.empty:
+                    raise DataFetchError(f"No data returned for {ticker}")
+                
                 self.stocks_data[ticker] = stock_data
+                logger.info(f"Successfully fetched {len(stock_data)} days of data for {ticker}")
             except Exception as e:
-                print(f'A problem occurred in {ticker} stocks data download...\n'
-                      f'The exception is: {e}')
+                logger.error(f"Failed to fetch data for {ticker}: {e}")
+                raise DataFetchError(f"Could not fetch data for {ticker}") from e
         self.steps = len(self.stocks_data[self.tickers[0]])
         self.current_idx = 0
 
@@ -53,39 +64,58 @@ class Market:
 
     def get_index(self):
         try:
+            logger.info(f"Fetching benchmark index data for {self.index}")
             index_data = yf.download(self.index,
                                      start=self.start_date.strftime(self.date_format),
                                      end=self.end_date.strftime(self.date_format))
+            
+            if index_data.empty:
+                raise DataFetchError(f"No data returned for benchmark index {self.index}")
+            
             self.index_data = index_data
 
             # compute the percentage index return
-            index_initial_value = self.index_data.iloc[0]['Open']
-            self.index_return_percent = (self.index_data['Open'].to_numpy() / index_initial_value - 1.) * 100.
+            # Extract scalar value properly from pandas
+            index_initial_value = self.index_data['Open'].iloc[0]
+            if hasattr(index_initial_value, 'item'):
+                index_initial_value = index_initial_value.item()
+            index_values = self.index_data['Open'].to_numpy()
+            self.index_return_percent = (index_values / index_initial_value - 1.) * 100.
+            
+            logger.info(f"Successfully fetched benchmark index data for {self.index}")
 
         except Exception as e:
-            print(f'A problem occurred in {self.index} stocks data download...\n'
-                  f'The exception is: {e}')
+            logger.error(f"Failed to fetch benchmark index {self.index}: {e}")
+            raise DataFetchError(f"Could not fetch benchmark index {self.index}") from e
 
     def get_stock_data(self, ticker, stock_prm):
         """
-        Get a single stock data
+        Get a single stock data with caching for performance
         :param ticker: the ticker of the stock
         :param stock_prm: the parameter, i.e. Open, Close, ...
-        :return: the data (type: float)
+        :return: the data (type: float or DataFrame)
         """
+        ticker = ticker.upper()
+        
+        # Check cache first
+        if ticker not in self.current_data_cache:
+            # Convert date object to string for pandas lookup if needed
+            date_key = self.current_date if isinstance(self.current_date, str) else self.current_date.strftime(self.date_format)
+            self.current_data_cache[ticker] = self.stocks_data[ticker].loc[pd.DatetimeIndex([date_key])]
+        
         if stock_prm == 'all':
             # return a single date all parameters of a single stock (type: DataFrame)
-            return self.stocks_data[ticker.upper()].loc[pd.DatetimeIndex([self.current_date])]
+            return self.current_data_cache[ticker]
         else:
             # return a single date single parameter of a single stock (type: float)
-            value = self.stocks_data[ticker.upper()].loc[pd.DatetimeIndex([self.current_date])][stock_prm].values[0]
+            value = self.current_data_cache[ticker][stock_prm].values[0]
             # Ensure we return a scalar, not an array
             return value.item() if hasattr(value, 'item') else value
 
     def step(self):
         """
         Steps the trading date one step to the future
-        :return: the previous date (datetime.date)
+        :return: tuple of (done: bool, previous_date: datetime.date)
         """
         # get current date
         previous_date = self.stocks_data[self.tickers[0]].index[self.current_idx].date()
@@ -93,11 +123,13 @@ class Market:
         # step index
         self.current_idx += 1
 
+        # Clear cache when stepping to new date
+        self.current_data_cache.clear()
+
         # step a single time step forward
         if self.current_idx < self.steps:
-
-            # step date
-            self.current_date = self.stocks_data[self.tickers[0]].index[self.current_idx].date().strftime(self.date_format)
+            # step date - keep as date object, not string
+            self.current_date = self.stocks_data[self.tickers[0]].index[self.current_idx].date()
             return False, previous_date
         else:
             return True, previous_date

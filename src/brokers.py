@@ -1,20 +1,32 @@
 import numpy as np
 import pandas as pd
-from markets import Market
+import logging
+from .markets import Market
+from .exceptions import InvalidParameterError
+
+logger = logging.getLogger(__name__)
 
 
 class Broker:
     """A Broker class which mitigate between the Trader and the Market. It execute the trades and collect the fees"""
     def __init__(self, buy_fee: float, min_buy_fee: float,
                  sell_fee: float, min_sell_fee: float, tax: float, my_market: Market):
+        # Validate parameters
+        if buy_fee < 0 or sell_fee < 0:
+            raise InvalidParameterError("Fees cannot be negative")
+        if tax < 0 or tax > 100:
+            raise InvalidParameterError("Tax must be between 0 and 100 percent")
+        if min_buy_fee < 0 or min_sell_fee < 0:
+            raise InvalidParameterError("Minimum fees cannot be negative")
+        
         self.my_market = my_market
         self.buy_fee = buy_fee / 100.
         self.min_buy_fee = min_buy_fee
         self.sell_fee = sell_fee / 100.
         self.min_sell_fee = min_sell_fee
         self.tax = tax / 100.
-        self.pending_buys = []
-        self.pending_sells = []
+        
+        logger.info(f"Broker initialized with buy_fee={buy_fee}%, sell_fee={sell_fee}%, tax={tax}%")
 
     def buy_now(self, ticker, units):
         """

@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from traders import Trader
-from markets import Market
+from .traders import Trader
+from .markets import Market
 import matplotlib.dates as mdates
 
 
