@@ -11,17 +11,14 @@ def simulator(liquid, tickers, periods, ratios, sell_strategy, start_date, end_d
               deposit, deposit_period, show_plots=True, return_traders=False):
 
     traders_list = []
-    market = Market(tickers, start_date=start_date, end_date=end_date)
-    broker = Broker(buy_fee=buy_fee, min_buy_fee=min_buy_fee, sell_fee=sell_fee,
-                    min_sell_fee=min_sell_fee, tax=tax, my_market=market)
-    first_date = cp.copy(market.current_date)
 
     for i, period in enumerate(periods):
         print(f'period: {period}')
 
-        # init market
-        market.current_idx = 0
-        market.current_date = first_date
+        # init market and broker
+        market = Market(tickers, start_date=start_date, end_date=end_date)
+        broker = Broker(buy_fee=buy_fee, min_buy_fee=min_buy_fee, sell_fee=sell_fee,
+                        min_sell_fee=min_sell_fee, tax=tax, my_market=market)
 
         # init new trader
         trader = Trader(liquid=liquid, balance_period=period, broker=broker, market=market,
@@ -31,10 +28,18 @@ def simulator(liquid, tickers, periods, ratios, sell_strategy, start_date, end_d
         for ticker in tickers:
             trader.buy(ticker, 1)
 
+        # update portfolio values after initial purchase
+        trader.update()
+
+        # balance portfolio with target ratios
+        trader.balance(tickers, p=ratios)
+
+        # set initial portfolio value for yield calculations
+        if trader.portfolio_initial_value is None:
+            trader.portfolio_initial_value = cp.copy(trader.portfolio_market_value)
+
         done = False
         steps = 0
-
-        trader.balance(tickers, p=ratios)
         while not done:
             steps += 1
             if steps % 100 == 0:
@@ -49,6 +54,7 @@ def simulator(liquid, tickers, periods, ratios, sell_strategy, start_date, end_d
             # deposit periodically
             if deposit > 0 and steps % deposit_period == 0:
                 trader.deposit(deposit)
+                trader.update()  # keep portfolio values current after deposit
 
             # balance trader portfolio
             if steps % trader.balance_period == 0:
@@ -66,7 +72,7 @@ def simulator(liquid, tickers, periods, ratios, sell_strategy, start_date, end_d
         yields_usd(traders_list, periods, 'balance period', market, liquid)
 
     if return_traders:
-        return traders_list
+        return traders_list, market
 
 
 if __name__ == '__main__':

@@ -54,6 +54,99 @@ class Trader:
         # Transaction history tracking
         self.transaction_history = []  # List of transaction dictionaries
 
+    def _calculate_buy_cost(self, units: int, price: float) -> Tuple[float, float]:
+        """
+        Calculate total cost and estimated fee for a buy order.
+        
+        Args:
+            units: Number of units to buy
+            price: Current market price per unit
+            
+        Returns:
+            Tuple of (total_cost, estimated_fee)
+        """
+        total_cost = units * price
+        estimated_fee = max(self.broker.buy_fee * total_cost, self.broker.min_buy_fee)
+        return total_cost, estimated_fee
+    
+    def _validate_buy_funds(self, ticker: str, total_cost: float, fee: float) -> bool:
+        """
+        Validate trader has sufficient funds for purchase.
+        
+        Args:
+            ticker: Stock ticker symbol
+            total_cost: Total cost of purchase
+            fee: Estimated transaction fee
+            
+        Returns:
+            True if sufficient funds, False otherwise
+        """
+        if total_cost + fee > self.liquid:
+            error_msg = f'Trader does not have enough liquid money to complete the {ticker} stock trade. Required: {total_cost + fee:.2f}, Available: {self.liquid:.2f}'
+            logger.warning(error_msg)
+            if self.verbose:
+                print(f'\n[+][+] {error_msg}\n')
+            return False
+        return True
+    
+    def _update_portfolio_after_buy(self, ticker: str, position: Position, units: int) -> None:
+        """
+        Update portfolio state after successful buy.
+        
+        Args:
+            ticker: Stock ticker symbol
+            position: Position object from broker
+            units: Number of units bought
+        """
+        # Initialize ticker in portfolio if needed
+        if ticker not in self.portfolio:
+            self.portfolio[ticker] = []
+            self.portfolio_meta[ticker] = {'units': 0, 'sign': 0}
+        
+        # Add position to portfolio
+        self.portfolio[ticker].append(position)
+        self.portfolio_meta[ticker]['units'] += units
+        self.portfolio_primary_value += position.cost_basis
+    
+    def _log_buy_transaction(self, ticker: str, units: int, price: float,
+                            total_price: float, fee: float) -> None:
+        """
+        Log buy transaction to history.
+        
+        Args:
+            ticker: Stock ticker symbol
+            units: Number of units bought
+            price: Price per unit
+            total_price: Total transaction value
+            fee: Transaction fee
+        """
+        self.transaction_history.append({
+            'date': self.market.current_date,
+            'type': 'BUY',
+            'ticker': ticker,
+            'units': units,
+            'price': price,
+            'total_value': total_price,
+            'fee': fee,
+            'tax': 0,
+            'liquid_after': self.liquid
+        })
+    
+    def _print_buy_info(self, ticker: str, units: int, total_price: float, fee: float) -> None:
+        """
+        Print verbose buy information.
+        
+        Args:
+            ticker: Stock ticker symbol
+            units: Number of units bought
+            total_price: Total transaction value
+            fee: Transaction fee
+        """
+        total_price_val = total_price.item() if hasattr(total_price, 'item') else total_price
+        fee_val = fee.item() if hasattr(fee, 'item') else fee
+        print('[+] BUY  | Ticker: {:6s} | Units: {:4.0f} | Total price: {:10.2f} | Fee: {:8.2f} |'
+              .format(ticker, units, np.round(total_price_val, 2), np.round(fee_val, 2)))
+
     def buy(self, ticker: str, units: int) -> bool:
         """
         This function is used for buying new stocks and adding them to the trader's portfolio
@@ -67,62 +160,162 @@ class Trader:
         """
         ticker = ticker.upper()
 
-        # get the stock current price
+        # Get current market price
         price = self.market.get_stock_data(ticker, 'Open')
 
-        # estimate total cost including fees
-        total_cost = units * price
-        estimated_fee = max(self.broker.buy_fee * total_cost, self.broker.min_buy_fee)
+        # Calculate costs
+        total_cost, estimated_fee = self._calculate_buy_cost(units, price)
         
-        # verify trader got enough liquid to complete the trade including fees
-        if total_cost + estimated_fee > self.liquid:
-            error_msg = f'Trader does not have enough liquid money to complete the {ticker} stock trade. Required: {total_cost + estimated_fee:.2f}, Available: {self.liquid:.2f}'
+        # Validate sufficient funds
+        if not self._validate_buy_funds(ticker, total_cost, estimated_fee):
+            return False
+
+        # Execute buy through broker
+        position, total_price, fee = self.broker.buy_now(ticker, units)
+        
+        # Update fees
+        self.buy_fee += fee
+        self.cumulative_fees += fee
+        
+        # Update liquid
+        self.liquid -= total_price + fee
+        
+        # Update portfolio
+        self._update_portfolio_after_buy(ticker, position, units)
+        
+        # Log transaction
+        self._log_buy_transaction(ticker, units, price, total_price, fee)
+        
+        # Print verbose output
+        if self.verbose:
+            self._print_buy_info(ticker, units, total_price, fee)
+
+        return True
+
+    def _validate_sell_units(self, ticker: str, units: int) -> bool:
+        """
+        Validate trader has sufficient units to sell.
+        
+        Args:
+            ticker: Stock ticker symbol
+            units: Number of units to sell
+            
+        Returns:
+            True if sufficient units, False otherwise
+        """
+        if self.portfolio_meta[ticker]['units'] < units:
+            error_msg = f'The trader does not have enough {ticker} units to complete the trade. Required: {units}, Available: {self.portfolio_meta[ticker]["units"]}'
             logger.warning(error_msg)
             if self.verbose:
                 print(f'\n[+][+] {error_msg}\n')
             return False
-        else:
-            # buy the stocks - now returns a Position object
-            position, total_price, fee = self.broker.buy_now(ticker, units)
-            self.buy_fee += fee
-            self.cumulative_fees += fee  # Track cumulative fees
-
-            # pay price
-            self.liquid -= total_price
-
-            # pay fee
-            self.liquid -= fee
-
-            # add ticker to portfolio
-            if ticker not in self.portfolio:
-                self.portfolio[ticker] = []
-                self.portfolio_meta[ticker] = {'units': 0, 'sign': 0}
-
-            # Add the Position object to portfolio
-            self.portfolio[ticker].append(position)
-            self.portfolio_meta[ticker]['units'] += units
-            self.portfolio_primary_value += position.cost_basis
+        return True
+    
+    def _collect_positions_to_sell(self, ticker: str, units: int) -> List[Position]:
+        """
+        Collect positions to sell based on sell strategy (FIFO/LIFO/TAX_OPT).
+        
+        Args:
+            ticker: Stock ticker symbol
+            units: Number of units to sell
             
-            # Log transaction
-            self.transaction_history.append({
-                'date': self.market.current_date,
-                'type': 'BUY',
-                'ticker': ticker,
-                'units': units,
-                'price': price,
-                'total_value': total_price,
-                'fee': fee,
-                'tax': 0,
-                'liquid_after': self.liquid
-            })
+        Returns:
+            List of Position objects to sell
+        """
+        positions_to_sell = []
+        units_remaining = units
 
-            if self.verbose:
-                total_price_val = total_price.item() if hasattr(total_price, 'item') else total_price
-                fee_val = fee.item() if hasattr(fee, 'item') else fee
-                print('[+] BUY  | Ticker: {:6s} | Units: {:4.0f} | Total price: {:10.2f} | Fee: {:8.2f} |'
-                      .format(ticker, units, np.round(total_price_val, 2), np.round(fee_val, 2)))
-
-            return True
+        # Remove positions from portfolio (order determined by sort_tickers)
+        while units_remaining > 0 and self.portfolio[ticker]:
+            position = self.portfolio[ticker][0]  # Peek at first position
+            
+            if position.units <= units_remaining:
+                # Sell entire position
+                position = self.portfolio[ticker].pop(0)
+                units_remaining -= position.units
+                self.portfolio_meta[ticker]['units'] -= position.units
+                self.portfolio_primary_value -= position.cost_basis
+                positions_to_sell.append(position)
+            else:
+                # Partial sale - split the position
+                units_to_sell = units_remaining
+                cost_basis_per_unit = position.purchase_price
+                
+                # Create a new position for the units being sold
+                sold_position = Position(
+                    ticker=position.ticker,
+                    units=units_to_sell,
+                    purchase_price=position.purchase_price,
+                    purchase_date=position.purchase_date,
+                    current_price=position.current_price
+                )
+                positions_to_sell.append(sold_position)
+                
+                # Update the remaining position
+                position.units -= units_to_sell
+                self.portfolio_meta[ticker]['units'] -= units_to_sell
+                self.portfolio_primary_value -= cost_basis_per_unit * units_to_sell
+                units_remaining = 0
+        
+        return positions_to_sell
+    
+    def _process_sell_proceeds(self, money: float, fee: float, tax: float) -> None:
+        """
+        Process proceeds from sale (update liquid, fees, tax).
+        
+        Args:
+            money: Gross proceeds from sale
+            fee: Transaction fee
+            tax: Capital gains tax
+        """
+        self.sell_fee += fee
+        self.tax += tax
+        self.cumulative_fees += fee
+        self.cumulative_tax += tax
+        self.liquid += money - fee - tax
+    
+    def _log_sell_transaction(self, ticker: str, units: int, price: float,
+                             money: float, fee: float, tax: float) -> None:
+        """
+        Log sell transaction to history.
+        
+        Args:
+            ticker: Stock ticker symbol
+            units: Number of units sold
+            price: Price per unit
+            money: Gross proceeds from sale
+            fee: Transaction fee
+            tax: Capital gains tax
+        """
+        self.transaction_history.append({
+            'date': self.market.current_date,
+            'type': 'SELL',
+            'ticker': ticker,
+            'units': units,
+            'price': price,
+            'total_value': money,
+            'fee': fee,
+            'tax': tax,
+            'liquid_after': self.liquid
+        })
+    
+    def _print_sell_info(self, ticker: str, units: int, money: float,
+                        fee: float, tax: float) -> None:
+        """
+        Print verbose sell information.
+        
+        Args:
+            ticker: Stock ticker symbol
+            units: Number of units sold
+            money: Gross proceeds from sale
+            fee: Transaction fee
+            tax: Capital gains tax
+        """
+        money_val = money.item() if hasattr(money, 'item') else money
+        fee_val = fee.item() if hasattr(fee, 'item') else fee
+        tax_val = tax.item() if hasattr(tax, 'item') else tax
+        print('[+] SELL | Ticker: {:6s} | Units: {:4.0f} | Total price: {:10.2f} | Fee: {:8.2f} '
+              '| Tax: {:8.2f} |'.format(ticker, units, np.round(money_val, 2), np.round(fee_val, 2), np.round(tax_val, 2)))
 
     def sell(self, ticker: str, units: int) -> bool:
         """
@@ -137,99 +330,116 @@ class Trader:
         """
         ticker = ticker.upper()
 
-        # check trader got enough stocks to complete the sell
-        if self.portfolio_meta[ticker]['units'] >= units:
-            positions_to_sell = []
-            units_remaining = units
-
-            # remove positions from portfolio in a FIFO order (first in first out)
-            while units_remaining > 0 and self.portfolio[ticker]:
-                position = self.portfolio[ticker][0]  # Peek at first position
-                
-                if position.units <= units_remaining:
-                    # Sell entire position
-                    position = self.portfolio[ticker].pop(0)
-                    units_remaining -= position.units
-                    self.portfolio_meta[ticker]['units'] -= position.units
-                    self.portfolio_primary_value -= position.cost_basis
-                    positions_to_sell.append(position)
-                else:
-                    # Partial sale - split the position
-                    units_to_sell = units_remaining
-                    cost_basis_per_unit = position.purchase_price
-                    
-                    # Create a new position for the units being sold
-                    sold_position = Position(
-                        ticker=position.ticker,
-                        units=units_to_sell,
-                        purchase_price=position.purchase_price,
-                        purchase_date=position.purchase_date,
-                        current_price=position.current_price
-                    )
-                    positions_to_sell.append(sold_position)
-                    
-                    # Update the remaining position
-                    position.units -= units_to_sell
-                    self.portfolio_meta[ticker]['units'] -= units_to_sell
-                    self.portfolio_primary_value -= cost_basis_per_unit * units_to_sell
-                    units_remaining = 0
-
-            # send positions to broker and collect money
-            money, fee, tax = self.broker.sell_now(ticker, positions_to_sell)
-            self.sell_fee += fee
-            self.tax += tax
-            self.cumulative_fees += fee  # Track cumulative fees
-            self.cumulative_tax += tax   # Track cumulative tax
-
-            # update the amount of liquid
-            self.liquid += money - fee - tax
-            
-            # Log transaction
-            price = self.market.get_stock_data(ticker, 'Open')
-            self.transaction_history.append({
-                'date': self.market.current_date,
-                'type': 'SELL',
-                'ticker': ticker,
-                'units': units,
-                'price': price,
-                'total_value': money,
-                'fee': fee,
-                'tax': tax,
-                'liquid_after': self.liquid
-            })
-
-            if self.verbose:
-                money_val = money.item() if hasattr(money, 'item') else money
-                fee_val = fee.item() if hasattr(fee, 'item') else fee
-                tax_val = tax.item() if hasattr(tax, 'item') else tax
-                print('[+] SELL | Ticker: {:6s} | Units: {:4.0f} | Total price: {:10.2f} | Fee: {:8.2f} '
-                      '| Tax: {:8.2f} |'.format(ticker, units, np.round(money_val, 2), np.round(fee_val, 2), np.round(tax_val, 2)))
-
-            return True
-        else:
-            error_msg = f'The trader does not have enough {ticker} units to complete the trade. Required: {units}, Available: {self.portfolio_meta[ticker]["units"]}'
-            logger.warning(error_msg)
-            if self.verbose:
-                print(f'\n[+][+] {error_msg}\n')
+        # Validate sufficient units
+        if not self._validate_sell_units(ticker, units):
             return False
+
+        # Collect positions to sell
+        positions_to_sell = self._collect_positions_to_sell(ticker, units)
+
+        # Execute sell through broker
+        money, fee, tax = self.broker.sell_now(ticker, positions_to_sell)
+        
+        # Process proceeds
+        self._process_sell_proceeds(money, fee, tax)
+        
+        # Log transaction
+        price = self.market.get_stock_data(ticker, 'Open')
+        self._log_sell_transaction(ticker, units, price, money, fee, tax)
+        
+        # Print verbose output
+        if self.verbose:
+            self._print_sell_info(ticker, units, money, fee, tax)
+
+        return True
+
+    def _calculate_portfolio_market_value(self) -> float:
+        """
+        Calculate total market value of all positions.
+        
+        Returns:
+            Total market value of portfolio
+        """
+        market_value = 0
+        for ticker in self.portfolio:
+            market_price = self.market.get_stock_data(ticker, 'Open')
+            units = self.portfolio_meta[ticker]['units']
+            market_value += units * market_price
+        return market_value
+    
+    def _calculate_portfolio_profit(self) -> float:
+        """
+        Calculate portfolio profit using cumulative tracking.
+        
+        Returns:
+            Total portfolio profit
+        """
+        fees_and_tax = self.cumulative_fees + self.cumulative_tax
+        return self.portfolio_market_value - self.portfolio_primary_value - fees_and_tax
 
     def update(self):
         """
         Function for updating the portfolio with the current market value of all stocks and computing the total profit
         :return: None
         """
-        # update the portfolio market current prices
-        self.portfolio_market_value = 0
-
-        # update market prices for all owned stocks
-        for ticker in self.portfolio:
-            market_price = self.market.get_stock_data(ticker, 'Open')
-            units = self.portfolio_meta[ticker]['units']
-            self.portfolio_market_value += units * market_price
-
-        # compute portfolio profit using cumulative tracking (O(1) instead of O(n))
+        # Update portfolio market value
+        self.portfolio_market_value = self._calculate_portfolio_market_value()
+        
+        # Compute portfolio profit
         self.fees_and_tax = self.cumulative_fees + self.cumulative_tax
-        self.portfolio_profit = self.portfolio_market_value - self.portfolio_primary_value - self.fees_and_tax
+        self.portfolio_profit = self._calculate_portfolio_profit()
+
+    def _reset_period_fees_and_tax(self) -> Tuple[float, float, float]:
+        """
+        Reset and return period fees and tax, then save to history.
+        
+        Returns:
+            Tuple of (buy_fee, sell_fee, tax) for the period
+        """
+        buy_fee = self.buy_fee
+        sell_fee = self.sell_fee
+        tax = self.tax
+        
+        # Save to history
+        self.buy_fee_history.append(buy_fee)
+        self.sell_fee_history.append(sell_fee)
+        self.tax_history.append(tax)
+        
+        # Reset for next period
+        self.buy_fee = 0
+        self.sell_fee = 0
+        self.tax = 0
+        
+        return buy_fee, sell_fee, tax
+    
+    def _calculate_yield(self) -> float:
+        """
+        Calculate current portfolio yield percentage.
+        
+        Returns:
+            Yield as percentage
+        """
+        if self.portfolio_initial_value is None or self.portfolio_initial_value == 0:
+            return 0.0
+        return (self.portfolio_market_value / self.portfolio_initial_value - 1.) * 100.
+    
+    def _save_portfolio_history(self, last_date) -> None:
+        """
+        Save current portfolio state to history.
+        
+        Args:
+            last_date: The current trading date
+        """
+        self.liquid_history.append(self.liquid)
+        self.profit_history.append(self.portfolio_profit)
+        self.portfolio_value_history.append(self.portfolio_market_value)
+        
+        # Set initial value on first save
+        if self.portfolio_initial_value is None:
+            self.portfolio_initial_value = cp.copy(self.portfolio_market_value)
+        
+        self.yield_history.append(self._calculate_yield())
+        self.date_history.append(last_date)
 
     def step(self, last_date):
         """
@@ -237,24 +447,15 @@ class Trader:
         :param last_date: the current trading date
         :return: None
         """
-        # update portfolio
+        # Update portfolio
         self.update()
         self.sort_tickers()
 
-        # save trading history
-        self.buy_fee_history.append(self.buy_fee)
-        self.sell_fee_history.append(self.sell_fee)
-        self.tax_history.append(self.tax)
-        self.buy_fee = 0
-        self.sell_fee = 0
-        self.tax = 0
-        self.liquid_history.append(self.liquid)
-        self.profit_history.append(self.portfolio_profit)  # market value - value when bought - tax and fees
-        self.portfolio_value_history.append(self.portfolio_market_value)
-        if self.portfolio_initial_value is None:
-            self.portfolio_initial_value = cp.copy(self.portfolio_market_value)
-        self.yield_history.append((self.portfolio_market_value / self.portfolio_initial_value - 1.) * 100.)
-        self.date_history.append(last_date)
+        # Reset and save period fees and tax
+        self._reset_period_fees_and_tax()
+        
+        # Save portfolio history
+        self._save_portfolio_history(last_date)
 
     def _collect_portfolio_data(self, tickers):
         """

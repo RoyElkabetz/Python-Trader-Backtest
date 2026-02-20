@@ -14,12 +14,9 @@ import os
 # Add parent directory to path to import src modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 from src.main import simulator
 import numpy as np
-from src.utils import *
-import copy as cp
+from src.utils import portfolio_values, yields, fees_and_tax, plot_performance_metrics, print_performance_summary
 
 
 class Portfolio:
@@ -147,9 +144,9 @@ if __name__ == '__main__':
     #                    portfolio15, portfolio16
     #                    ]
 
-    # portfolios_list = [portfolio1, portfolio2, portfolio3, portfolio4, portfolio5, portfolio6, portfolio7]
+    portfolios_list = [portfolio1, portfolio2, portfolio3, portfolio4, portfolio5, portfolio6, portfolio7]
 
-    portfolios_list = [portfolio1, portfolio2]
+    # portfolios_list = [portfolio1, portfolio2]
 
     for i, portfolio in enumerate(portfolios_list):
         # run simulator
@@ -160,70 +157,27 @@ if __name__ == '__main__':
         # save results
         portfolio.add_traders(traders_list)
 
-    # plot yields
-    interval = int(len(portfolio.traders[0].date_history) / 10)
-    fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
-    axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
-    axes.set_title('Value history')
-    for i, portfolio in enumerate(portfolios_list):
-        axes.plot(portfolio.traders[0].date_history, portfolio.traders[0].portfolio_value_history,
-                  label=portfolio.name, linewidth=1)
+    # Extract traders and names for plotting
+    # simulator returns a list of traders (one per period), we want the first period's trader
+    traders_list = [p.traders[0] if isinstance(p.traders[0], list) else p.traders for p in portfolios_list]
+    # If traders is a nested list, flatten it
+    traders_list = [t[0] if isinstance(t, list) else t for t in traders_list]
+    portfolio_names = [p.name for p in portfolios_list]
+    
+    # ==================== Plot 1: Portfolio Value History ====================
+    portfolio_values(traders_list, portfolio_names, 'Portfolio', use_colors=True)
 
-    axes.set_ylabel('USD')
-    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
-    axes.legend(fontsize=4)
-    axes.grid()
-    plt.show()
+    # ==================== Plot 2: Yield History ====================
+    yields(traders_list, portfolio_names, 'Portfolio', market=None, use_colors=True)
 
-    interval = int(len(portfolio.traders[0].date_history) / 10)
-    fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
-    axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    axes.xaxis.set_major_locator(mdates.DayLocator(interval=interval))
-    axes.set_title('Yield history')
-    for i, portfolio in enumerate(portfolios_list):
-        axes.plot(portfolio.traders[0].date_history, portfolio.traders[0].yield_history,
-                  label=portfolio.name, linewidth=1)
+    # ==================== Plot 3: Fees and Tax History ====================
+    fees_and_tax(traders_list, portfolio_names, 'Portfolio', use_colors=True)
 
-    axes.set_ylabel('[%]')
-    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
-    axes.legend(fontsize=4)
-    axes.grid()
-    plt.show()
-
-    # plot fees and tax
-    interval = int(len(portfolio.traders[0].date_history) / 10)
-    fig, axes = plt.subplots(nrows=3, ncols=1, sharex=True, dpi=150)
-    axes[0].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-    axes[0].xaxis.set_major_locator(mdates.DayLocator(interval=interval))
-    axes[0].set_title('Buy fee history')
-
-    for i, portfolio in enumerate(portfolios_list):
-        axes[0].plot(portfolio.traders[0].date_history, np.cumsum(portfolio.traders[0].buy_fee_history),
-                     label=portfolio.name, linewidth=1)
-
-    axes[0].set_ylabel('USD')
-    axes[0].legend(fontsize=4)
-    axes[0].grid()
-
-    axes[1].set_title('Sell fee history')
-    for i, portfolio in enumerate(portfolios_list):
-        axes[1].plot(portfolio.traders[0].date_history, np.cumsum(portfolio.traders[0].sell_fee_history),
-                     label=portfolio.name, linewidth=1)
-
-    axes[1].set_ylabel('USD')
-    axes[1].grid()
-
-    axes[2].set_title('Tax history')
-    for i, portfolio in enumerate(portfolios_list):
-        axes[2].plot(portfolio.traders[0].date_history, np.cumsum(portfolio.traders[0].tax_history),
-                     label=portfolio.name, linewidth=1)
-
-    axes[2].set_ylabel('USD')
-    axes[2].set_xlabel('Operations')
-    axes[2].grid()
-    fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
-    plt.show()
+    # ==================== Plot 4: Performance Metrics Comparison ====================
+    plot_performance_metrics(traders_list, portfolio_names, use_colors=True)
+    
+    # ==================== Print Summary Table ====================
+    print_performance_summary(traders_list, portfolio_names, start_date, end_date, liquid, periods[0])
 
 
 

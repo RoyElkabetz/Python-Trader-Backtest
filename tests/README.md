@@ -10,6 +10,14 @@ This directory contains the pytest-based test suite for the backtesting framewor
   - Basic trading operations (buy/sell)
   - Portfolio analytics methods
   - Transaction history tracking
+- `test_simulator.py` - Tests for the simulator function, including:
+  - Basic simulation execution
+  - Multiple period comparisons
+  - Portfolio value tracking
+  - Transaction history
+  - Deposit functionality
+  - Different sell strategies
+  - Edge cases and integration tests
 
 ## Running Tests
 
@@ -80,6 +88,24 @@ The test suite covers:
 - Filtering by ticker and type
 - Transaction summaries
 - Per-ticker analysis
+
+✅ **Simulator Function**
+- Basic simulation execution
+- Multiple balance periods
+- Initial portfolio value setup
+- Portfolio updates after purchases
+- History tracking (liquid, profit, portfolio value, dates, yields)
+- Periodic deposits with portfolio updates
+- Transaction recording
+- Balance operations
+- Different portfolio ratios
+- All sell strategies (FIFO, LIFO, TAX_OPT)
+- Market reset between periods
+- Portfolio analytics availability
+- Fees and tax tracking
+- Yield calculations
+- Edge cases (single ticker, multiple tickers, short periods, high-frequency balancing)
+- Integration tests (complete workflow, period comparisons)
 
 ## Adding New Tests
 
