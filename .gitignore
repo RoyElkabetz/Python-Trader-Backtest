@@ -1,3 +1,5 @@
+local/
+
 # Virtual Environment
 venv/
 env/

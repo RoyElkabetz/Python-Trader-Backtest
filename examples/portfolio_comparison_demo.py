@@ -35,13 +35,13 @@ class Portfolio:
 
 if __name__ == '__main__':
     # periods to simulation
-    periods = [30]
+    periods = [30, 90]
 
     # Simulator arguments
     liquid = 100000
-    sell_strategy = 'TAX_OPT'
-    start_date = (2020, 1, 1)
-    end_date = (2021, 12, 30)
+    sell_strategy = 'LIFO'
+    start_date = (2020, 2, 16)
+    end_date = (2026, 1, 1)
     buy_fee = 0
     min_buy_fee = 1.
     sell_fee = 0
@@ -131,11 +131,11 @@ if __name__ == '__main__':
                             ['VT', 'RWO', 'BND'],
                             [33.3, 33.3, 33.4])
 
-    # # uncomment for all portfolios
+    # uncomment for all portfolios
     # portfolios_list = [portfolio1, portfolio2, portfolio3, portfolio4, portfolio5, portfolio6, portfolio7,
     #                    portfolio8, portfolio9, portfolio10, portfolio11, portfolio12, portfolio13, portfolio14,
     #                    portfolio15, portfolio16, portfolio17, portfolio18, portfolio19, portfolio20, portfolio21,
-    #                    portfolio22, portfolio23, portfolio24, portfolio25
+    #                    portfolio22, portfolio23, portfolio24, portfolio25, portfolio26
     #                    ]
 
     # # uncomment for the first 16 portfolios
@@ -150,19 +150,23 @@ if __name__ == '__main__':
 
     for i, portfolio in enumerate(portfolios_list):
         # run simulator
-        traders_list = simulator(liquid, portfolio.tickers, periods, portfolio.ratios, sell_strategy, start_date,
-                                 end_date, buy_fee, min_buy_fee, sell_fee, min_sell_fee, tax, verbose,
-                                 plots_normalize, deposit, deposit_period, show_plots, return_traders)
+        traders_list, market = simulator(
+            liquid, portfolio.tickers, periods, portfolio.ratios, sell_strategy, start_date,
+            end_date, buy_fee, min_buy_fee, sell_fee, min_sell_fee, tax, verbose,
+            plots_normalize, deposit, deposit_period, show_plots, return_traders
+            )
 
         # save results
         portfolio.add_traders(traders_list)
 
     # Extract traders and names for plotting
-    # simulator returns a list of traders (one per period), we want the first period's trader
-    traders_list = [p.traders[0] if isinstance(p.traders[0], list) else p.traders for p in portfolios_list]
-    # If traders is a nested list, flatten it
-    traders_list = [t[0] if isinstance(t, list) else t for t in traders_list]
-    portfolio_names = [p.name for p in portfolios_list]
+    # simulator returns a list of traders (one per period) flatten everything into a single list
+    traders_list = []
+    portfolio_names = []
+    for p in portfolios_list:
+        for trader, period in zip(p.traders, periods):
+            traders_list.append(trader)
+            portfolio_names.append(f"{p.name} - {period}")
     
     # ==================== Plot 1: Portfolio Value History ====================
     portfolio_values(traders_list, portfolio_names, 'Portfolio', use_colors=True)
