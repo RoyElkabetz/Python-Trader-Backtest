@@ -5,7 +5,7 @@ Tests for the simulator function in main.py.
 import pytest
 import numpy as np
 from datetime import date
-from src.main import simulator
+from src.simulators import multi_period_simulator
 from src.markets import Market
 from src.brokers import Broker
 from src.traders import Trader
@@ -31,16 +31,13 @@ class TestSimulator:
             'min_sell_fee': 1.0,
             'tax': 25.0,
             'verbose': False,
-            'plots_normalize': True,
             'deposit': 0,
             'deposit_period': 30,
-            'show_plots': False,
-            'return_traders': True
         }
     
     def test_simulator_basic_execution(self, basic_params):
         """Test that simulator runs without errors."""
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         
         assert len(traders_list) == 1
         assert isinstance(traders_list[0], Trader)
@@ -49,7 +46,7 @@ class TestSimulator:
     def test_simulator_multiple_periods(self, basic_params):
         """Test simulator with multiple balance periods."""
         basic_params['periods'] = [15, 30, 60]
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         
         assert len(traders_list) == 3
         assert traders_list[0].balance_period == 15
@@ -58,7 +55,7 @@ class TestSimulator:
     
     def test_simulator_initial_portfolio_value_set(self, basic_params):
         """Test that initial portfolio value is set correctly."""
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         trader = traders_list[0]
         
         # Initial portfolio value should be set
@@ -67,7 +64,7 @@ class TestSimulator:
     
     def test_simulator_portfolio_updated_after_initial_buy(self, basic_params):
         """Test that portfolio is updated after initial stock purchases."""
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         trader = traders_list[0]
         
         # Portfolio should have stocks
@@ -80,7 +77,7 @@ class TestSimulator:
     
     def test_simulator_history_tracking(self, basic_params):
         """Test that trading history is tracked."""
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         trader = traders_list[0]
         
         # History should be populated
@@ -95,7 +92,7 @@ class TestSimulator:
         basic_params['deposit'] = 1000
         basic_params['deposit_period'] = 10
         
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         trader = traders_list[0]
         
         # Liquid should be higher than initial due to deposits
@@ -104,7 +101,7 @@ class TestSimulator:
     
     def test_simulator_transaction_history(self, basic_params):
         """Test that transactions are recorded."""
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         trader = traders_list[0]
         
         # Should have initial buy transactions
@@ -119,7 +116,7 @@ class TestSimulator:
         """Test that balance operations are performed."""
         basic_params['periods'] = [10]  # Short period for more frequent balancing
         
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         trader = traders_list[0]
         
         # Should have multiple balance operations
@@ -131,7 +128,7 @@ class TestSimulator:
         """Test simulator with different portfolio ratios."""
         basic_params['ratios'] = [0.7, 0.3]
         
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         trader = traders_list[0]
         
         # Portfolio should exist and be balanced according to ratios
@@ -144,7 +141,7 @@ class TestSimulator:
         
         for strategy in strategies:
             basic_params['sell_strategy'] = strategy
-            traders_list, market = simulator(**basic_params)
+            traders_list, market = multi_period_simulator(**basic_params)
             trader = traders_list[0]
             
             assert trader.sell_strategy == strategy
@@ -154,7 +151,7 @@ class TestSimulator:
         """Test that market is reset between different periods."""
         basic_params['periods'] = [15, 30]
         
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         
         # Both traders should have similar initial conditions
         # (same starting date, same initial purchases)
@@ -166,7 +163,7 @@ class TestSimulator:
     
     def test_simulator_portfolio_analytics_available(self, basic_params):
         """Test that portfolio analytics are available after simulation."""
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         trader = traders_list[0]
         
         # Should be able to get portfolio summary
@@ -181,7 +178,7 @@ class TestSimulator:
     
     def test_simulator_fees_and_tax_tracked(self, basic_params):
         """Test that fees and taxes are tracked."""
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         trader = traders_list[0]
         
         # Should have fee and tax history
@@ -195,7 +192,7 @@ class TestSimulator:
     
     def test_simulator_yield_calculations(self, basic_params):
         """Test that yield calculations are correct."""
-        traders_list, market = simulator(**basic_params)
+        traders_list, market = multi_period_simulator(**basic_params)
         trader = traders_list[0]
         
         # Yield history should be populated
@@ -214,7 +211,7 @@ class TestSimulatorEdgeCases:
     
     def test_simulator_single_ticker(self):
         """Test simulator with a single ticker."""
-        traders_list, market = simulator(
+        traders_list, market = multi_period_simulator(
             liquid=10000,
             tickers=['AAPL'],
             periods=[30],
@@ -228,11 +225,8 @@ class TestSimulatorEdgeCases:
             min_sell_fee=1.0,
             tax=25.0,
             verbose=False,
-            plots_normalize=True,
             deposit=0,
             deposit_period=30,
-            show_plots=False,
-            return_traders=True
         )
         
         assert len(traders_list) == 1
@@ -240,7 +234,7 @@ class TestSimulatorEdgeCases:
     
     def test_simulator_three_tickers(self):
         """Test simulator with three tickers."""
-        traders_list, market = simulator(
+        traders_list, market = multi_period_simulator(
             liquid=10000,
             tickers=['AAPL', 'MSFT', 'GOOG'],
             periods=[30],
@@ -254,18 +248,15 @@ class TestSimulatorEdgeCases:
             min_sell_fee=1.0,
             tax=25.0,
             verbose=False,
-            plots_normalize=True,
             deposit=0,
             deposit_period=30,
-            show_plots=False,
-            return_traders=True
         )
         
         assert len(traders_list[0].portfolio) == 3
     
     def test_simulator_short_period(self):
         """Test simulator with very short time period."""
-        traders_list, market = simulator(
+        traders_list, market = multi_period_simulator(
             liquid=10000,
             tickers=['AAPL'],
             periods=[30],
@@ -279,11 +270,8 @@ class TestSimulatorEdgeCases:
             min_sell_fee=1.0,
             tax=25.0,
             verbose=False,
-            plots_normalize=True,
             deposit=0,
             deposit_period=30,
-            show_plots=False,
-            return_traders=True
         )
         
         assert len(traders_list) == 1
@@ -291,7 +279,7 @@ class TestSimulatorEdgeCases:
     
     def test_simulator_high_frequency_balancing(self):
         """Test simulator with very frequent balancing."""
-        traders_list, market = simulator(
+        traders_list, market = multi_period_simulator(
             liquid=10000,
             tickers=['AAPL', 'MSFT'],
             periods=[5],  # Balance every 5 days
@@ -305,11 +293,8 @@ class TestSimulatorEdgeCases:
             min_sell_fee=1.0,
             tax=25.0,
             verbose=False,
-            plots_normalize=True,
             deposit=0,
             deposit_period=30,
-            show_plots=False,
-            return_traders=True
         )
         
         trader = traders_list[0]
@@ -324,7 +309,7 @@ class TestSimulatorIntegration:
     def test_complete_simulation_workflow(self):
         """Test complete simulation workflow from start to finish."""
         # Run a complete simulation
-        traders_list, market = simulator(
+        traders_list, market = multi_period_simulator(
             liquid=10000,
             tickers=['AAPL', 'MSFT'],
             periods=[30, 60],
@@ -338,11 +323,8 @@ class TestSimulatorIntegration:
             min_sell_fee=1.0,
             tax=25.0,
             verbose=False,
-            plots_normalize=True,
             deposit=500,
             deposit_period=30,
-            show_plots=False,
-            return_traders=True
         )
         
         # Verify we have two traders (one for each period)
@@ -369,7 +351,7 @@ class TestSimulatorIntegration:
     
     def test_simulator_comparison_between_periods(self):
         """Test that different periods produce different results."""
-        traders_list, market = simulator(
+        traders_list, market = multi_period_simulator(
             liquid=10000,
             tickers=['AAPL', 'MSFT'],
             periods=[15, 60],
@@ -383,11 +365,8 @@ class TestSimulatorIntegration:
             min_sell_fee=1.0,
             tax=25.0,
             verbose=False,
-            plots_normalize=True,
             deposit=0,
             deposit_period=30,
-            show_plots=False,
-            return_traders=True
         )
         
         trader_15 = traders_list[0]

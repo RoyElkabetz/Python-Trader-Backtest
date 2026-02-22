@@ -1,5 +1,6 @@
 import pandas as pd
 import yfinance as yf
+import copy as cp
 from datetime import date
 from typing import List, Tuple, Dict, Optional, Union, Any
 import numpy as np
@@ -31,6 +32,7 @@ class Market:
         self.start_date = date(*start_date)     # start_date = (Year, Month, Day)
         self.end_date = date(*end_date)         # end_date = (Year, Month, Day)
         self.index = benchmark_index
+        self.common_first_date = None
         self.steps = None
         self.current_idx = None
         self.current_date = None
@@ -47,6 +49,14 @@ class Market:
             self.get_data_()
 
         self.get_index()
+
+    def reset(self) -> None:
+        """
+        Reset the market dates and delete all cached values
+        """
+        self.current_idx = 0
+        self.current_date = self.common_first_date
+        self.current_data_cache.clear()
 
     def get_data_(self) -> None:
         """
@@ -71,12 +81,12 @@ class Market:
         self.current_idx = 0
 
         # get the first common date of all tickers
-        common_first_date = self.stocks_data[self.tickers[0]].index[0].date()
+        self.common_first_date = self.stocks_data[self.tickers[0]].index[0].date()
         for ticker in self.tickers:
-            if common_first_date < self.stocks_data[ticker].index[0].date():
-                common_first_date = self.stocks_data[ticker].index[0].date()
+            if self.common_first_date < self.stocks_data[ticker].index[0].date():
+                self.common_first_date = self.stocks_data[ticker].index[0].date()
 
-        self.current_date = common_first_date
+        self.current_date = cp.copy(self.common_first_date)
 
     def get_index(self) -> None:
         """Fetch and process benchmark index data."""
