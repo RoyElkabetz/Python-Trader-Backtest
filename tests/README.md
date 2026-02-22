@@ -18,6 +18,13 @@ This directory contains the pytest-based test suite for the backtesting framewor
   - Deposit functionality
   - Different sell strategies
   - Edge cases and integration tests
+- `test_utils.py` - Tests for the plotting utilities module, including:
+  - Market plotting functions
+  - Trader performance visualization
+  - Performance metrics plotting
+  - Summary printing functions
+  - Edge cases and parameter variations
+- `test_logging.py` - Tests for the logging system
 
 ## Running Tests
 
@@ -106,6 +113,27 @@ The test suite covers:
 - Yield calculations
 - Edge cases (single ticker, multiple tickers, short periods, high-frequency balancing)
 - Integration tests (complete workflow, period comparisons)
+
+✅ **Plotting Utilities (utils.py)**
+- Market plotting (normalized and absolute values)
+- Profit and portfolio value visualization
+- Portfolio value history plotting
+- Liquid history tracking
+- Fees and tax visualization
+- Yield plotting (with and without market comparison)
+- Performance metrics comparison
+- Summary printing and formatting
+- Color palette variations
+- Edge cases (single trader, multiple traders)
+- Integration with complete simulation workflow
+
+✅ **Logging System**
+- Logger configuration and initialization
+- Hierarchical logger creation
+- File and console logging
+- Different logging levels
+- Integration across all components
+- Complete workflow logging
 
 ## Adding New Tests
 

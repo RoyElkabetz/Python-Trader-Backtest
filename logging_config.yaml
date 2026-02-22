@@ -1,0 +1,34 @@
+# Logging Configuration Template for Trading Backtest System
+# 
+# This file provides an optional way to configure logging settings.
+# If not used, the system will use command-line arguments or defaults.
+#
+# To use this file, load it in your code with:
+#   import yaml
+#   with open('logging_config.yaml') as f:
+#       config = yaml.safe_load(f)
+#   setup_logging(**config)
+
+# Console logging settings
+console_level: INFO  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+enable_console: true
+
+# File logging settings
+file_level: DEBUG    # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+enable_file: true
+log_dir: logs
+log_file: trader_backtest.log
+
+# Rotating file handler settings
+max_bytes: 10485760  # 10 MB (10 * 1024 * 1024)
+backup_count: 5      # Keep 5 backup files
+
+# Component-specific log levels (optional, advanced usage)
+# Uncomment and modify to set different levels for specific components
+# component_levels:
+#   trader_backtest.markets: DEBUG
+#   trader_backtest.brokers: INFO
+#   trader_backtest.traders: INFO
+#   trader_backtest.simulators: INFO
+
+# Made with Bob

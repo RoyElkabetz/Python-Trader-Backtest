@@ -26,9 +26,9 @@ class TestBroker:
     def test_broker_creation(self, market):
         """Test creating a Broker object."""
         broker = Broker(0.1, 1.0, 0.1, 1.0, 25.0, market)
-        assert broker.buy_fee == 0.001
+        assert broker.buy_fee_percent == 0.001
         assert broker.min_buy_fee == 1.0
-        assert broker.sell_fee == 0.001
+        assert broker.sell_fee_percent == 0.001
         assert broker.min_sell_fee == 1.0
         assert broker.tax == 0.25
     

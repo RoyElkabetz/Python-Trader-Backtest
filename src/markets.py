@@ -4,10 +4,10 @@ import copy as cp
 from datetime import date
 from typing import List, Tuple, Dict, Optional, Union, Any
 import numpy as np
-import logging
 from .exceptions import DataFetchError, InvalidParameterError
+from .logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger('markets')
 
 
 class Market:
@@ -41,22 +41,28 @@ class Market:
         self.index_return_percent = None
         self.current_data_cache = {}  # Cache for current day's data
 
-        logger.info(f"Initializing Market with benchmark index: {self.index}")
+        logger.info(f"Initializing Market with {len(self.tickers)} tickers: {', '.join(self.tickers)}")
+        logger.info(f"Date range: {self.start_date} to {self.end_date}")
+        logger.info(f"Benchmark index: {self.index}")
         
         self.get_data_()
         if self.current_date != self.stocks_data[self.tickers[0]].index[0].date():
+            logger.debug(f"Adjusting start date from {self.start_date} to {self.current_date}")
             self.start_date = self.current_date
             self.get_data_()
 
         self.get_index()
+        logger.info(f"Market initialization complete. Total trading days: {self.steps}")
 
     def reset(self) -> None:
         """
         Reset the market dates and delete all cached values
         """
+        logger.debug(f"Resetting market to initial state (date: {self.common_first_date})")
         self.current_idx = 0
         self.current_date = self.common_first_date
         self.current_data_cache.clear()
+        logger.debug("Market reset complete")
 
     def get_data_(self) -> None:
         """
@@ -64,7 +70,7 @@ class Market:
         """
         for ticker in self.tickers:
             try:
-                logger.info(f"Fetching data for {ticker}")
+                logger.debug(f"Fetching data for {ticker}")
                 stock_data = yf.download(ticker,
                                          start=self.start_date.strftime(self.date_format),
                                          end=self.end_date.strftime(self.date_format))
@@ -73,7 +79,7 @@ class Market:
                     raise DataFetchError(f"No data returned for {ticker}")
                 
                 self.stocks_data[ticker] = stock_data
-                logger.info(f"Successfully fetched {len(stock_data)} days of data for {ticker}")
+                logger.debug(f"Successfully fetched {len(stock_data)} days of data for {ticker}")
             except Exception as e:
                 logger.error(f"Failed to fetch data for {ticker}: {e}")
                 raise DataFetchError(f"Could not fetch data for {ticker}") from e
@@ -91,7 +97,7 @@ class Market:
     def get_index(self) -> None:
         """Fetch and process benchmark index data."""
         try:
-            logger.info(f"Fetching benchmark index data for {self.index}")
+            logger.debug(f"Fetching benchmark index data for {self.index}")
             index_data = yf.download(self.index,
                                      start=self.start_date.strftime(self.date_format),
                                      end=self.end_date.strftime(self.date_format))
@@ -109,7 +115,7 @@ class Market:
             index_values = self.index_data['Open'].to_numpy()
             self.index_return_percent = (index_values / index_initial_value - 1.) * 100.
             
-            logger.info(f"Successfully fetched benchmark index data for {self.index}")
+            logger.debug(f"Successfully fetched benchmark index data for {self.index}")
 
         except Exception as e:
             logger.error(f"Failed to fetch benchmark index {self.index}: {e}")
@@ -163,8 +169,10 @@ class Market:
         if self.current_idx < self.steps:
             # step date - keep as date object, not string
             self.current_date = self.stocks_data[self.tickers[0]].index[self.current_idx].date()
+            logger.debug(f"Market stepped to date: {self.current_date} (step {self.current_idx}/{self.steps})")
             return False, previous_date
         else:
+            logger.debug(f"Market simulation complete. Final date: {previous_date}")
             return True, previous_date
 
     def get_date_data(self, from_date: Tuple[int, int, int],

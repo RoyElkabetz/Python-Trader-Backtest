@@ -1,22 +1,94 @@
 import numpy as np
-import logging
 from typing import List, Dict, Tuple, Optional, Any
 from datetime import date
 from .markets import Market
 from .brokers import Broker
 from .exceptions import InsufficientFundsError, InsufficientSharesError
 from .position import Position
+from .logging_config import get_logger
 import copy as cp
 
-logger = logging.getLogger(__name__)
+logger = get_logger('traders')
 
 
 class Trader:
-    """ A Trader class for Backtesting simulation of a periodic balancing strategy for stocks trading"""
-    def __init__(self, liquid: float, balance_period: int, broker: Broker, market: Market,
-                 verbose: bool = False, sell_strategy: str = 'FIFO') -> None:
+    """
+    A Trader class for backtesting simulation of a periodic balancing strategy for stocks trading.
+    
+    This class manages a portfolio with periodic rebalancing, deposits, and transaction tracking.
+    It supports multiple sell strategies and provides comprehensive performance metrics.
+    
+    Parameters
+    ----------
+    liquid : float
+        Initial liquid cash available for trading.
+    balance_period : int
+        Number of periods between portfolio rebalancing operations.
+    ratios : List[float]
+        Target allocation ratios for each ticker in the portfolio. Should sum to 1.0.
+    deposit : float
+        Amount of cash to deposit into the account at each deposit period.
+    deposit_period : int
+        Number of periods between deposits.
+    broker : Broker
+        Broker instance that handles transaction fees and tax calculations.
+    market : Market
+        Market instance that provides price data for tickers.
+    verbose : bool, optional
+        If True, prints detailed transaction information. Default is False.
+    sell_strategy : str, optional
+        Strategy for selecting which positions to sell. Options are:
+        - 'FIFO': First In First Out (default)
+        - 'LIFO': Last In First Out
+        - 'TAX_OPT': Tax-optimized (sells positions to minimize tax liability)
+        Default is 'FIFO'.
+    
+    Attributes
+    ----------
+    portfolio : dict
+        Dictionary mapping tickers to their Position objects.
+    portfolio_meta : dict
+        Metadata about portfolio positions.
+    portfolio_primary_value : float
+        Total cost basis of the portfolio.
+    portfolio_market_value : float
+        Current market value of the portfolio.
+    portfolio_profit : float
+        Unrealized profit/loss of the portfolio.
+    liquid : float
+        Current liquid cash available.
+    transaction_history : list
+        List of all buy and sell transactions.
+    
+    Examples
+    --------
+    >>> from src.brokers import Broker
+    >>> from src.markets import Market
+    >>> broker = Broker(buy_fee=0.001, sell_fee=0.001, tax_rate=0.25)
+    >>> market = Market(tickers=['AAPL', 'GOOGL'], start_date='2020-01-01', end_date='2021-01-01')
+    >>> trader = Trader(
+    ...     liquid=10000.0,
+    ...     balance_period=30,
+    ...     ratios=[0.5, 0.5],
+    ...     deposit=1000.0,
+    ...     deposit_period=30,
+    ...     broker=broker,
+    ...     market=market,
+    ...     verbose=True,
+    ...     sell_strategy='FIFO'
+    ... )
+    """
+    def __init__(
+        self, liquid: float, balance_period: int, ratios: List[float], deposit: float,
+        deposit_period: int, broker: Broker, market: Market,
+        verbose: bool = False, sell_strategy: str = 'FIFO'
+        ) -> None:
+
         self.liquid = liquid
         self.balance_period = balance_period
+        self.ratios=ratios
+        self.deposit=deposit
+        self.deposit_period=deposit_period
         self.broker = broker
         self.market = market
         self.verbose = verbose
@@ -53,6 +125,10 @@ class Trader:
         
         # Transaction history tracking
         self.transaction_history = []  # List of transaction dictionaries
+        
+        logger.info(f"Trader initialized: liquid=${liquid:.2f}, balance_period={balance_period}, "
+                   f"ratios={ratios}, sell_strategy={sell_strategy}")
+        logger.info(f"Deposit settings: amount=${deposit:.2f}, period={deposit_period}")
 
     def _calculate_buy_cost(self, units: int, price: float) -> Tuple[float, float]:
         """
@@ -66,7 +142,7 @@ class Trader:
             Tuple of (total_cost, estimated_fee)
         """
         total_cost = units * price
-        estimated_fee = max(self.broker.buy_fee * total_cost, self.broker.min_buy_fee)
+        estimated_fee = max(self.broker.buy_fee_percent * total_cost, self.broker.min_buy_fee)
         return total_cost, estimated_fee
     
     def _validate_buy_funds(self, ticker: str, total_cost: float, fee: float) -> bool:
@@ -84,8 +160,6 @@ class Trader:
         if total_cost + fee > self.liquid:
             error_msg = f'Trader does not have enough liquid money to complete the {ticker} stock trade. Required: {total_cost + fee:.2f}, Available: {self.liquid:.2f}'
             logger.warning(error_msg)
-            if self.verbose:
-                print(f'\n[+][+] {error_msg}\n')
             return False
         return True
     
@@ -134,7 +208,7 @@ class Trader:
     
     def _print_buy_info(self, ticker: str, units: int, total_price: float, fee: float) -> None:
         """
-        Print verbose buy information.
+        Log verbose buy information.
         
         Args:
             ticker: Stock ticker symbol
@@ -144,8 +218,7 @@ class Trader:
         """
         total_price_val = total_price.item() if hasattr(total_price, 'item') else total_price
         fee_val = fee.item() if hasattr(fee, 'item') else fee
-        print('[+] BUY  | Ticker: {:6s} | Units: {:4.0f} | Total price: {:10.2f} | Fee: {:8.2f} |'
-              .format(ticker, units, np.round(total_price_val, 2), np.round(fee_val, 2)))
+        logger.debug(f'BUY  | Ticker: {ticker:6s} | Units: {units:4.0f} | Total price: {np.round(total_price_val, 2):10.2f} | Fee: {np.round(fee_val, 2):8.2f} |')
 
     def buy(self, ticker: str, units: int) -> bool:
         """
@@ -165,6 +238,8 @@ class Trader:
 
         # Calculate costs
         total_cost, estimated_fee = self._calculate_buy_cost(units, price)
+        
+        logger.debug(f"Attempting to buy {ticker}: {units} units @ ${price:.2f}, estimated cost=${total_cost:.2f}, fee=${estimated_fee:.2f}")
         
         # Validate sufficient funds
         if not self._validate_buy_funds(ticker, total_cost, estimated_fee):
@@ -186,6 +261,8 @@ class Trader:
         # Log transaction
         self._log_buy_transaction(ticker, units, price, total_price, fee)
         
+        logger.debug(f"Buy completed: {ticker} x{units} @ ${price:.2f}, liquid remaining=${self.liquid:.2f}")
+        
         # Print verbose output
         if self.verbose:
             self._print_buy_info(ticker, units, total_price, fee)
@@ -206,8 +283,6 @@ class Trader:
         if self.portfolio_meta[ticker]['units'] < units:
             error_msg = f'The trader does not have enough {ticker} units to complete the trade. Required: {units}, Available: {self.portfolio_meta[ticker]["units"]}'
             logger.warning(error_msg)
-            if self.verbose:
-                print(f'\n[+][+] {error_msg}\n')
             return False
         return True
     
@@ -302,7 +377,7 @@ class Trader:
     def _print_sell_info(self, ticker: str, units: int, money: float,
                         fee: float, tax: float) -> None:
         """
-        Print verbose sell information.
+        Log verbose sell information.
         
         Args:
             ticker: Stock ticker symbol
@@ -314,8 +389,7 @@ class Trader:
         money_val = money.item() if hasattr(money, 'item') else money
         fee_val = fee.item() if hasattr(fee, 'item') else fee
         tax_val = tax.item() if hasattr(tax, 'item') else tax
-        print('[+] SELL | Ticker: {:6s} | Units: {:4.0f} | Total price: {:10.2f} | Fee: {:8.2f} '
-              '| Tax: {:8.2f} |'.format(ticker, units, np.round(money_val, 2), np.round(fee_val, 2), np.round(tax_val, 2)))
+        logger.debug(f'SELL | Ticker: {ticker:6s} | Units: {units:4.0f} | Total price: {np.round(money_val, 2):10.2f} | Fee: {np.round(fee_val, 2):8.2f} | Tax: {np.round(tax_val, 2):8.2f} |')
 
     def sell(self, ticker: str, units: int) -> bool:
         """
@@ -329,6 +403,8 @@ class Trader:
             True if trade succeeded, False otherwise
         """
         ticker = ticker.upper()
+        
+        logger.debug(f"Attempting to sell {ticker}: {units} units")
 
         # Validate sufficient units
         if not self._validate_sell_units(ticker, units):
@@ -346,6 +422,8 @@ class Trader:
         # Log transaction
         price = self.market.get_stock_data(ticker, 'Open')
         self._log_sell_transaction(ticker, units, price, money, fee, tax)
+        
+        logger.debug(f"Sell completed: {ticker} x{units} @ ${price:.2f}, proceeds=${money:.2f}, liquid=${self.liquid:.2f}")
         
         # Print verbose output
         if self.verbose:
@@ -523,11 +601,11 @@ class Trader:
             Tuple of (sell_fee, buy_fee, total_fee)
         """
         sell_fee = np.max([
-            np.sum(market_value * units_to_trade * (units_sign < 0)) * self.broker.sell_fee,
+            np.sum(market_value * units_to_trade * (units_sign < 0)) * self.broker.sell_fee_percent,
             np.sum(units_sign < 0) * self.broker.min_sell_fee
         ])
         buy_fee = np.max([
-            np.sum(market_value * units_to_trade * (units_sign > 0)) * self.broker.buy_fee,
+            np.sum(market_value * units_to_trade * (units_sign > 0)) * self.broker.buy_fee_percent,
             np.sum(units_sign > 0) * self.broker.min_buy_fee
         ])
         return sell_fee, buy_fee, sell_fee + buy_fee
@@ -555,21 +633,19 @@ class Trader:
         return units_to_trade, trade_sign
     
     def _print_balance_info(self, tickers, owned_value, value_to_max, values_for_execution, market_value, execution_order):
-        """Print verbose balance information."""
+        """Log verbose balance information."""
         liquid_val = self.liquid.item() if hasattr(self.liquid, 'item') else self.liquid
-        print('[+] Liquid: {:14.2f} '.format(np.round(liquid_val, 2)))
-        execute_str = ['[+] NEXT ']
-        for ticker in tickers:
-            execute_str.append('| ')
-            execute_str.append(ticker)
-            execute_str.append(': {:10.2f} ')
-        execute_str.append('|')
-        print('|-------------------------------------------------------------------------------------------------|')
-        print(''.join(['[+] CURR '] + execute_str[1:]).format(*owned_value[execution_order]))
-        print(''.join(['[+] GOAL '] + execute_str[1:]).format(*value_to_max[execution_order]))
-        print(''.join(execute_str).format(*values_for_execution[execution_order]))
-        print(''.join(['[+] UNIT '] + execute_str[1:]).format(*market_value[execution_order]))
-        print('|-------------------------------------------------------------------------------------------------|')
+        logger.debug(f'Liquid: {np.round(liquid_val, 2):14.2f}')
+        
+        # Build ticker header
+        ticker_header = ' | '.join([f'{ticker}: {{:10.2f}}' for ticker in tickers])
+        
+        logger.debug('|' + '-' * 97 + '|')
+        logger.debug('CURR | ' + ticker_header.format(*owned_value[execution_order]) + ' |')
+        logger.debug('GOAL | ' + ticker_header.format(*value_to_max[execution_order]) + ' |')
+        logger.debug('NEXT | ' + ticker_header.format(*values_for_execution[execution_order]) + ' |')
+        logger.debug('UNIT | ' + ticker_header.format(*market_value[execution_order]) + ' |')
+        logger.debug('|' + '-' * 97 + '|')
     
     def balance(self, tickers: list, p=None):
         """
@@ -591,10 +667,15 @@ class Trader:
             p = [1. / len(tickers)] * len(tickers)
         tickers = np.array(tickers, dtype=str)
         p = np.array(p, dtype=float)
+        
+        logger.debug(f"Starting portfolio rebalancing with target ratios: {p.tolist()}")
+        logger.debug(f"Tickers to balance: {tickers.tolist()}")
 
         if self.verbose:
-            print('\n')
-            print('|------------------------------------------ BALANCING --------------------------------------------|')
+            logger.debug('')
+            logger.debug('|' + '-' * 94 + '|')
+            logger.debug('|' + ' ' * 38 + 'BALANCING' + ' ' * 47 + '|')
+            logger.debug('|' + '-' * 94 + '|')
 
         # Step 1: Collect current portfolio data
         portfolio_data = self._collect_portfolio_data(tickers)
@@ -658,10 +739,12 @@ class Trader:
 
         # Step 8: Update and verify balance
         self.update()
-        self.is_balanced(tickers, p=p[execution_order])
+        is_balanced = self.is_balanced(tickers, p=p[execution_order])
+        
+        logger.debug(f"Portfolio rebalancing complete. Balanced: {is_balanced}, liquid=${self.liquid:.2f}")
 
         if self.verbose:
-            print('|-------------------------------------------------------------------------------------------------|')
+            logger.debug('|' + '-' * 97 + '|')
 
     def is_balanced(self, tickers, p=None):
         """
@@ -690,8 +773,7 @@ class Trader:
         goal_values = self.usable_liquid * p - margins
         total_error = np.sum(np.abs(owned_value - goal_values))
         if self.verbose:
-            print('| Current Error: {:10.2f} | Allowed Error: {:10.2f}'
-                  .format(np.round(total_error), np.round(allowed_margin)))
+            logger.debug(f'| Current Error: {np.round(total_error):10.2f} | Allowed Error: {np.round(allowed_margin):10.2f}')
 
         if total_error < allowed_margin:
             # the portfolio is balanced up to the allowed margin
@@ -725,7 +807,7 @@ class Trader:
                 # Sort by purchase price (highest first to minimize capital gains)
                 self.portfolio[ticker] = sorted(positions, key=lambda pos: pos.purchase_price, reverse=True)
 
-    def deposit(self, amount):
+    def make_deposit(self, amount):
         """
         Add money to the traders liquid
         :param amount: the amount of money to deposit
@@ -733,8 +815,9 @@ class Trader:
         """
         assert amount > 0, 'Trader can only deposit positive amounts of money.'
         self.liquid += amount
+        logger.debug(f"Deposit made: ${amount:.2f}, new liquid balance=${self.liquid:.2f}")
 
-    def withdraw(self, amount: float) -> float:
+    def make_withdraw(self, amount: float) -> float:
         """
         Withdraw money from trader's liquid
         
@@ -747,12 +830,11 @@ class Trader:
         assert amount > 0, 'Trader can only withdraw positive amounts of money.'
         if self.liquid >= amount:
             self.liquid -= amount
+            logger.debug(f"Withdraw made: ${amount:.2f}, new liquid balance=${self.liquid:.2f}")
             return amount
         else:
             error_msg = f'Trader does not have enough liquid (has {self.liquid:.2f} $) to withdraw {amount:.2f} $.'
             logger.warning(error_msg)
-            if self.verbose:
-                print(error_msg)
             return 0
     
     # ==================== Portfolio Analytics Methods ====================
@@ -1060,3 +1142,4 @@ class Trader:
             'average_buy_price': total_invested / total_units_bought if total_units_bought > 0 else 0,
             'average_sell_price': total_received / total_units_sold if total_units_sold > 0 else 0
         }
+

@@ -25,24 +25,30 @@ class TestTrader:
     @pytest.fixture
     def trader(self, broker, market):
         """Create a test trader."""
-        return Trader(10000, 30, broker, market, verbose=False)
+        return Trader(
+            liquid=10000, balance_period=30, ratios=[0.5, 0.5], deposit=1000, 
+            deposit_period=10, broker=broker, market=market, verbose=False
+            )
     
     def test_trader_creation(self, trader):
         """Test creating a Trader object."""
         assert trader.liquid == 10000
         assert trader.balance_period == 30
+        assert trader.ratios == [0.5, 0.5]
+        assert trader.deposit == 1000
+        assert trader.deposit_period == 10
         assert trader.sell_strategy == 'FIFO'
         assert len(trader.portfolio) == 0
     
     def test_buy_stock(self, trader, market):
         """Test buying stock."""
         market.step()
-        result = trader.buy('AAPL', 10)
+        result = trader.buy('AAPL', 15)
         
         assert result is True
         assert 'AAPL' in trader.portfolio
-        assert trader.portfolio_meta['AAPL']['units'] == 10
-        assert trader.liquid < 10000
+        assert trader.portfolio_meta['AAPL']['units'] == 15
+        assert trader.liquid == 10000 - (15 * market.get_stock_data("AAPL", "Open")) * (1 + 0.1 / 100)
     
     def test_buy_insufficient_funds(self, trader, market):
         """Test buying with insufficient funds."""
@@ -56,7 +62,7 @@ class TestTrader:
         """Test selling stock."""
         market.step()
         trader.buy('AAPL', 10)
-        initial_liquid = trader.liquid
+        liquid_after_sell = trader.liquid
         
         # Step forward a few days
         for _ in range(5):
@@ -67,7 +73,7 @@ class TestTrader:
         
         assert result is True
         assert trader.portfolio_meta['AAPL']['units'] == 5
-        assert trader.liquid > initial_liquid
+        assert trader.liquid > liquid_after_sell
     
     def test_sell_insufficient_shares(self, trader, market):
         """Test selling more shares than owned."""
@@ -82,18 +88,18 @@ class TestTrader:
     def test_deposit(self, trader):
         """Test depositing money."""
         initial_liquid = trader.liquid
-        trader.deposit(1000)
+        trader.make_deposit(1000)
         assert trader.liquid == initial_liquid + 1000
     
     def test_withdraw_success(self, trader):
         """Test withdrawing money successfully."""
-        amount = trader.withdraw(1000)
+        amount = trader.make_withdraw(1000)
         assert amount == 1000
         assert trader.liquid == 9000
     
     def test_withdraw_insufficient_funds(self, trader):
         """Test withdrawing more than available."""
-        amount = trader.withdraw(20000)
+        amount = trader.make_withdraw(20000)
         assert amount == 0
         assert trader.liquid == 10000
     
@@ -124,7 +130,10 @@ class TestPortfolioAnalytics:
         """Create a trader with some trading history."""
         market = Market(['AAPL', 'GOOG'], (2020, 1, 1), (2020, 6, 30))
         broker = Broker(0.1, 1.0, 0.1, 1.0, 25.0, market)
-        trader = Trader(10000, 30, broker, market, verbose=False)
+        trader = Trader(
+            liquid=10000, balance_period=30, ratios=[0.5, 0.5], deposit=1000, 
+            deposit_period=10, broker=broker, market=market, verbose=False
+            )
         
         # Simulate some trading
         market.step()
@@ -194,7 +203,10 @@ class TestTransactionHistory:
         """Create a trader with transaction history."""
         market = Market(['AAPL', 'GOOG'], (2020, 1, 1), (2020, 6, 30))
         broker = Broker(0.1, 1.0, 0.1, 1.0, 25.0, market)
-        trader = Trader(10000, 30, broker, market, verbose=False)
+        trader = Trader(
+            liquid=10000, balance_period=30, ratios=[0.5, 0.5], deposit=1000, 
+            deposit_period=10, broker=broker, market=market, verbose=False
+            )
         
         # Make some trades
         market.step()
@@ -272,7 +284,10 @@ class TestTraderMicroMethods:
     @pytest.fixture
     def trader(self, broker, market):
         """Create a test trader."""
-        return Trader(10000, 30, broker, market, verbose=False)
+        return Trader(
+            liquid=10000, balance_period=30, ratios=[0.5, 0.5], deposit=1000, 
+            deposit_period=10, broker=broker, market=market, verbose=False
+            )
     
     # Tests for buy() micro-methods
     
@@ -288,7 +303,7 @@ class TestTraderMicroMethods:
         # Fee should be max of percentage fee or minimum fee
         # buy_fee = 0.1% = 0.001, min_buy_fee = 1.0
         # 1500 * 0.001 = 1.5, max(1.5, 1.0) = 1.5
-        expected_fee = max(trader.broker.buy_fee * total_cost, trader.broker.min_buy_fee)
+        expected_fee = max(trader.broker.buy_fee_percent * total_cost, trader.broker.min_buy_fee)
         assert estimated_fee == expected_fee
         assert estimated_fee == 1.5
     
@@ -302,7 +317,7 @@ class TestTraderMicroMethods:
         assert total_cost == 1500000.0
         # buy_fee = 0.1% = 0.001, min_buy_fee = 1.0
         # 1,500,000 * 0.001 = 1500, max(1500, 1.0) = 1500
-        expected_fee = 1500000.0 * trader.broker.buy_fee
+        expected_fee = 1500000.0 * trader.broker.buy_fee_percent
         assert estimated_fee == expected_fee
         assert estimated_fee == 1500.0
     

@@ -14,9 +14,10 @@ import os
 # Add parent directory to path to import src modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.main import simulator
+from src.simulators import multi_period_simulator
 import numpy as np
 from src.utils import portfolio_values, yields, fees_and_tax, plot_performance_metrics, print_performance_summary
+from src.logging_config import setup_logging
 
 
 class Portfolio:
@@ -34,6 +35,17 @@ class Portfolio:
 
 
 if __name__ == '__main__':
+
+    # Initialize logging system
+    setup_logging(
+        console_level="INFO",
+        file_level="INFO",
+        log_file="portfolio_comparison_demo.log",
+        log_dir="logs",
+        enable_console=True,
+        enable_file=True,
+    )
+
     # periods to simulation
     periods = [30, 90]
 
@@ -48,11 +60,8 @@ if __name__ == '__main__':
     min_sell_fee = 1.
     tax = 25.
     verbose = False
-    plots_normalize = False
     deposit = 0
     deposit_period = 0
-    show_plots = False
-    return_traders = True
 
     # portfolios to simulate
     portfolio1 = Portfolio('Ideal Index',
@@ -150,10 +159,10 @@ if __name__ == '__main__':
 
     for i, portfolio in enumerate(portfolios_list):
         # run simulator
-        traders_list, market = simulator(
+        traders_list, market = multi_period_simulator(
             liquid, portfolio.tickers, periods, portfolio.ratios, sell_strategy, start_date,
             end_date, buy_fee, min_buy_fee, sell_fee, min_sell_fee, tax, verbose,
-            plots_normalize, deposit, deposit_period, show_plots, return_traders
+            deposit, deposit_period,
             )
 
         # save results
