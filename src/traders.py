@@ -667,6 +667,7 @@ class Trader:
             p = [1. / len(tickers)] * len(tickers)
         tickers = np.array(tickers, dtype=str)
         p = np.array(p, dtype=float)
+        assert(np.sum(p) == 1)
         
         logger.debug(f"Starting portfolio rebalancing with target ratios: {p.tolist()}")
         logger.debug(f"Tickers to balance: {tickers.tolist()}")

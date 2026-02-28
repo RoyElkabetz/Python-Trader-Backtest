@@ -6,7 +6,7 @@ from .markets import Market
 import matplotlib.dates as mdates
 
 
-def market_plot(market, prm='Open', tickers=None, normalize=True):
+def market_plot(market, prm='Open', tickers=None, normalize=True, save_path=None):
     data = market.stocks_data
     if tickers is None:
         tickers = list(data.keys())
@@ -28,10 +28,12 @@ def market_plot(market, prm='Open', tickers=None, normalize=True):
         ax.set_ylabel('USD')
     fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     ax.grid()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
     plt.show()
 
 
-def profit_and_portfolio_value(traders: list, parameter: list, parameter_name: str):
+def profit_and_portfolio_value(traders: list, parameter: list, parameter_name: str, save_path=None):
     interval = int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=2, ncols=1, sharex=True, dpi=150)
     axes[0].xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -56,10 +58,12 @@ def profit_and_portfolio_value(traders: list, parameter: list, parameter_name: s
     fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     axes[1].legend()
     axes[1].grid()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
     plt.show()
 
 
-def profits(traders: list, parameter: list, parameter_name: str):
+def profits(traders: list, parameter: list, parameter_name: str, save_path=None):
     interval = int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -73,10 +77,12 @@ def profits(traders: list, parameter: list, parameter_name: str):
     fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     axes.legend()
     axes.grid()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
     plt.show()
 
 
-def portfolio_values(traders: list, parameter: list, parameter_name: str, use_colors=True):
+def portfolio_values(traders: list, parameter: list, parameter_name: str, use_colors=True, save_path=None):
     """
     Plot portfolio value history for multiple traders.
     
@@ -85,6 +91,7 @@ def portfolio_values(traders: list, parameter: list, parameter_name: str, use_co
         parameter: List of parameter values for labeling
         parameter_name: Name of the parameter being varied
         use_colors: If True, use color palette for better visualization
+        save_path: Optional path to save the figure
     """
     interval = int(len(traders[0].date_history) / 10)
     fig, ax = plt.subplots(figsize=(14, 6), dpi=120)
@@ -102,17 +109,19 @@ def portfolio_values(traders: list, parameter: list, parameter_name: str, use_co
         label = f'{parameter_name}: {parameter[i]}'
         ax.plot(trader.date_history, trader.portfolio_value_history,
                 label=label, linewidth=2, color=colors[i], alpha=0.8)
-
+    
     ax.set_ylabel('Portfolio Value (USD)', fontsize=11, fontweight='bold')
     ax.set_xlabel('Date', fontsize=11, fontweight='bold')
     fig.autofmt_xdate(bottom=0.15, rotation=30, ha='right')
     ax.legend(loc='best', framealpha=0.9, ncol=2)
     ax.grid(True, alpha=0.3, linestyle='--')
     plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
     plt.show()
 
 
-def liquids(traders: list, parameter: list, parameter_name: str):
+def liquids(traders: list, parameter: list, parameter_name: str, save_path=None):
     interval = int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=1, ncols=1, sharex=True, dpi=150)
     axes.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -126,10 +135,12 @@ def liquids(traders: list, parameter: list, parameter_name: str):
     fig.autofmt_xdate(bottom=0.2, rotation=30, ha='right')
     axes.legend()
     axes.grid()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
     plt.show()
 
 
-def fees_and_tax(traders: list, parameter: list, parameter_name: str, use_colors=True):
+def fees_and_tax(traders: list, parameter: list, parameter_name: str, use_colors=True, save_path=None):
     """
     Plot cumulative fees and tax history for multiple traders.
     
@@ -138,6 +149,7 @@ def fees_and_tax(traders: list, parameter: list, parameter_name: str, use_colors
         parameter: List of parameter values for labeling
         parameter_name: Name of the parameter being varied
         use_colors: If True, use color palette for better visualization
+        save_path: Optional path to save the figure
     """
     interval = int(len(traders[0].date_history) / 10)
     fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(14, 10), sharex=True, dpi=120)
@@ -182,10 +194,12 @@ def fees_and_tax(traders: list, parameter: list, parameter_name: str, use_colors
     axes[2].grid(True, alpha=0.3, linestyle='--')
     fig.autofmt_xdate(bottom=0.08, rotation=30, ha='right')
     plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
     plt.show()
 
 
-def yields(traders: list, parameter: list, parameter_name: str, market: Optional[Market] = None, use_colors=True):
+def yields(traders: list, parameter: list, parameter_name: str, market: Optional[Market] = None, use_colors=True, save_path=None):
     """
     Plot yield history for multiple traders.
     
@@ -195,6 +209,7 @@ def yields(traders: list, parameter: list, parameter_name: str, market: Optional
         parameter_name: Name of the parameter being varied
         market: Optional Market object for S&P 500 comparison
         use_colors: If True, use color palette for better visualization
+        save_path: Optional path to save the figure
     """
     interval = int(len(traders[0].date_history) / 10)
     fig, ax = plt.subplots(figsize=(14, 6), dpi=120)
@@ -224,11 +239,13 @@ def yields(traders: list, parameter: list, parameter_name: str, market: Optional
     ax.legend(loc='best', framealpha=0.9, ncol=2)
     ax.grid(True, alpha=0.3, linestyle='--')
     plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
     plt.show()
 
 
 def yields_usd(traders: list, parameter: list, parameter_name: str, market: Optional[Market] = None,
-               liquid: float = 100000, use_colors=True):
+               liquid: float = 100000, use_colors=True, save_path=None):
     """
     Plot yield history in USD for multiple traders.
     
@@ -239,6 +256,7 @@ def yields_usd(traders: list, parameter: list, parameter_name: str, market: Opti
         market: Optional Market object for S&P 500 comparison
         liquid: Initial liquid amount for S&P 500 comparison
         use_colors: If True, use color palette for better visualization
+        save_path: Optional path to save the figure
     """
     interval = int(len(traders[0].date_history) / 10)
     fig, ax = plt.subplots(figsize=(14, 6), dpi=120)
@@ -268,10 +286,12 @@ def yields_usd(traders: list, parameter: list, parameter_name: str, market: Opti
     ax.legend(loc='best', framealpha=0.9, ncol=2)
     ax.grid(True, alpha=0.3, linestyle='--')
     plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
     plt.show()
 
 
-def plot_performance_metrics(traders: list, names: list, use_colors=True):
+def plot_performance_metrics(traders: list, names: list, use_colors=True, save_path=None):
     """
     Plot comprehensive performance metrics comparison for multiple traders.
     
@@ -287,6 +307,7 @@ def plot_performance_metrics(traders: list, names: list, use_colors=True):
         traders: List of Trader objects
         names: List of names/labels for each trader
         use_colors: If True, use color palette for better visualization
+        save_path: Optional path to save the figure
     """
     # Collect metrics for all traders
     sharpe_ratios = [t.get_sharpe_ratio() for t in traders]
@@ -368,6 +389,8 @@ def plot_performance_metrics(traders: list, names: list, use_colors=True):
     axes[1, 2].axvline(x=0, color='black', linestyle='-', linewidth=0.8, alpha=0.5)
     
     plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight', dpi=300)
     plt.show()
 
 
